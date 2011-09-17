@@ -1,0 +1,58 @@
+name: ModMode
+main: cc.co.traviswatkins.ModMode
+version: 0.1
+author: Travis Watkins
+
+
+commands:
+  vanish:
+    description: Makes you invisible
+    usage: |
+           Incorrect usage of /<command>. Examples:
+           /<command> - Makes you invisible
+           /<command> list - List of invisible players
+  unvanish:
+    description: Makes you visible again
+    usage: |
+           Incorrect usage of /<command>. Examples:
+           /<command> - Makes you visible again
+           /<command> <time> - Makes you visible for <time> minutes
+  modmode:
+    description: Toggle modmode on/off
+    usage: |
+           Incorrect usage of /<command>. Examples:
+           /<command> on - Enable modmode
+           /<command> off - Disable modmode
+
+
+permissions:
+  modmode.*:
+    description: Allow a player all vanish permissions
+    children:
+      modmode.vanish: true
+      modmode.vanish.list: true
+      modmode.vanish.showhidden: true
+      modmode.unvanish: true
+      modmode.unvanish.unlimited: true
+      modmode.enable: false
+      modmode.disable: false
+
+  modmode.vanish:
+    description: Allow a player to turn invisible
+    default: op
+  modmode.vanish.list:
+    description: Allow a player to see the list of invisible players
+    default: op
+  modmode.vanish.showhidden:
+    description: Allow a player to see invisible players in-game
+    default: op
+  modmode.vanish.unvanish:
+    description: Allow a player to become visible for a limited time
+    default: op
+  modmode.vanish.unvanish.unlimited:
+    description: Allow a player to become visible for an unlimited time
+    default: op
+
+  modmode.toggle:
+    description: Allow a player to enter/exit modmode
+    default: op
