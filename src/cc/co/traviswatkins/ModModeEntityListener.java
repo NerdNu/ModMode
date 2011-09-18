@@ -20,6 +20,7 @@ public class ModModeEntityListener extends EntityListener
     @Override
     public void onEntityDamage(EntityDamageEvent e)
     {
+        // block PVP specifically
         if (e instanceof EntityDamageByEntityEvent)
         {
             EntityDamageByEntityEvent event = (EntityDamageByEntityEvent) e;
@@ -38,7 +39,9 @@ public class ModModeEntityListener extends EntityListener
                 }
             }
         }
-        else if (e.getEntity() instanceof Player)
+
+        // block all damage to invisible people and people in mod mode
+        if (e.getEntity() instanceof Player)
         {
             Player damagee = (Player)e.getEntity();
             if (plugin.isPlayerModMode(damagee.getDisplayName()) || plugin.isPlayerInvisible(damagee.getName()))
