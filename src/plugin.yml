@@ -46,12 +46,14 @@ permissions:
   modmode.vanish.showhidden:
     description: Allow a player to see invisible players in-game
     default: op
-  modmode.vanish.unvanish:
+  modmode.unvanish:
     description: Allow a player to become visible for a limited time
     default: op
-  modmode.vanish.unvanish.unlimited:
+  modmode.unvanish.unlimited:
     description: Allow a player to become visible for an unlimited time
     default: op
+    children:
+      modmode.unvanish: true
 
   modmode.toggle:
     description: Allow a player to enter/exit modmode

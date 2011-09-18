@@ -124,7 +124,6 @@ public class ModMode extends JavaPlugin
         if (isPlayerInvisible(player.getName()))
             invisible.remove(player.getName());
 
-        ((CraftPlayer)player).getHandle().name = player.getDisplayName();
         player.kickPlayer("You are no longer in mod mode!");
 
         return true;
@@ -142,6 +141,8 @@ public class ModMode extends JavaPlugin
         }
 
         modmode.add(player.getDisplayName());
+        // force save of original name player data before switching
+        player.saveData();
         String newname = player.getDisplayName().length() > 11 ? player.getDisplayName().substring(0, 11) : player.getDisplayName();
         ((CraftPlayer)player).getHandle().name = ChatColor.GREEN + newname + ChatColor.WHITE;
         player.getInventory().clear();
