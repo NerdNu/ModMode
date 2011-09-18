@@ -27,7 +27,6 @@ public class ModMode extends JavaPlugin
 {
     public static PermissionHandler permissionHandler;
     private SerializedPersistance persistance;
-    private int RANGE_SQUARED = 512 * 512;
 
     private Set<String> invisible = new HashSet<String>();
     public Set<String> modmode  = new HashSet<String>();
@@ -49,7 +48,13 @@ public class ModMode extends JavaPlugin
     @Override
     public void onDisable()
     {
-        log.log(Level.INFO, "[" + getDescription().getName() + ")] " + getDescription().getVersion() + "disabled.");
+        // get everyone out of mod mode to avoid issues
+        Player[] onlinePlayers = this.getServer().getOnlinePlayers();
+        for (Player p : onlinePlayers)
+            if (isPlayerModMode(p.getDisplayName()))
+                disableModMode(p);
+
+        log.log(Level.INFO, "[" + getDescription().getName() + ")] " + getDescription().getVersion() + " disabled.");
     }
 
     @Override
@@ -136,7 +141,7 @@ public class ModMode extends JavaPlugin
             return false;
         }
 
-        modmode.add(player.getName());
+        modmode.add(player.getDisplayName());
         String newname = player.getDisplayName().length() > 11 ? player.getDisplayName().substring(0, 11) : player.getDisplayName();
         ((CraftPlayer)player).getHandle().name = ChatColor.GREEN + newname + ChatColor.WHITE;
         player.getInventory().clear();
