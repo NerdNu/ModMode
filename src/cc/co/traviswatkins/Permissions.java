@@ -14,7 +14,8 @@ public class Permissions {
 
     public final static String VANISH             = _MODMODE + ".vanish";
     public final static String VANISH_LIST        = VANISH   + ".list";
-    public final static String VANISH_SHOWHIDDEN  = VANISH   + ".showhidden";
+    public final static String VANISH_SHOWMODS    = VANISH   + ".showmods";
+    public final static String VANISH_SHOWALL     = VANISH   + ".showall";
     public final static String UNVANISH           = _MODMODE + ".unvanish";
     public final static String UNVANISH_UNLIMITED = UNVANISH + ".unlimited";
 

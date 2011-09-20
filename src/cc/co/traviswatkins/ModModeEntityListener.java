@@ -72,7 +72,7 @@ public class ModModeEntityListener extends EntityListener
 
         Player player = (Player)e.getEntity();
         if (plugin.isPlayerInvisible(player.getName()))
-            if (!Permissions.hasPermission(e.getTracker(), Permissions.VANISH_SHOWHIDDEN))
+            if (!plugin.shouldSee(e.getTracker(), player))
                 e.setCancelled(true);
     }
 

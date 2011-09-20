@@ -16,6 +16,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.nijiko.permissions.PermissionHandler;
+import java.io.File;
 import java.util.List;
 import net.minecraft.server.EntityHuman;
 import net.minecraft.server.Packet20NamedEntitySpawn;
@@ -28,8 +29,8 @@ public class ModMode extends JavaPlugin
     public static PermissionHandler permissionHandler;
     private SerializedPersistance persistance;
 
-    private Set<String> invisible = new HashSet<String>();
-    public Set<String> modmode  = new HashSet<String>();
+    private Set<String> invisible;
+    public Set<String> modmode;
 
     private final ModModeEntityListener entityListener = new ModModeEntityListener(this);
     private final ModModePlayerListener playerListener = new ModModePlayerListener(this);
@@ -45,14 +46,48 @@ public class ModMode extends JavaPlugin
         return modmode.contains(name);
     }
 
+    // should p1 be able to see p2?
+    public boolean shouldSee(Player p1, Player p2)
+    {
+        if (Permissions.hasPermission(p1, Permissions.VANISH_SHOWALL))
+            return true;
+
+        if (Permissions.hasPermission(p1, Permissions.VANISH_SHOWMODS))
+            if (Permissions.hasPermission(p2, Permissions.VANISH_SHOWMODS))
+                return true;
+
+        return false;
+    }
+
+    public void load()
+    {
+        File file = new File(this.getDataFolder().getPath() + "/modmode.db");
+        persistance = new SerializedPersistance(file, this);
+
+        invisible = (Set<String>) persistance.getValue(new String[]{"vanish"});
+        if (invisible == null)
+            invisible = new HashSet<String>();
+
+        modmode = (Set<String>) persistance.getValue(new String[]{"modmode"});
+        if (modmode == null)
+            modmode = new HashSet<String>();
+    }
+
+    public void save()
+    {
+        try {
+            persistance.setValue(new String[]{"vanish"}, invisible);
+            persistance.setValue(new String[]{"modmode"}, modmode);
+            persistance.save();
+        } catch (Exception ex) {
+            log.log(Level.SEVERE, null, ex);
+        }
+    }
+
     @Override
     public void onDisable()
     {
-        // get everyone out of mod mode to avoid issues
-        Player[] onlinePlayers = this.getServer().getOnlinePlayers();
-        for (Player p : onlinePlayers)
-            if (isPlayerModMode(p.getDisplayName()))
-                disableModMode(p);
+        save();
 
         log.log(Level.INFO, "[" + getDescription().getName() + ")] " + getDescription().getVersion() + " disabled.");
     }
@@ -70,6 +105,8 @@ public class ModMode extends JavaPlugin
         pm.registerEvent(Event.Type.PLAYER_RESPAWN,     playerListener, Priority.Normal, this);
         pm.registerEvent(Event.Type.PLAYER_PICKUP_ITEM, playerListener, Priority.Normal, this);
         pm.registerEvent(Event.Type.PLAYER_DROP_ITEM,   playerListener, Priority.Normal, this);
+ 
+        load();
 
         log.log(Level.INFO, "[" + getDescription().getName() +"] " + getDescription().getVersion() + " enabled.");
     }
@@ -121,8 +158,6 @@ public class ModMode extends JavaPlugin
         }
 
         modmode.remove(player.getDisplayName());
-        if (isPlayerInvisible(player.getName()))
-            invisible.remove(player.getName());
 
         player.kickPlayer("You are no longer in mod mode!");
 
@@ -158,7 +193,7 @@ public class ModMode extends JavaPlugin
             if (p.getEntityId() == player.getEntityId())
                 continue;
 
-            if (unlimited || Permissions.hasPermission(p, Permissions.VANISH_SHOWHIDDEN))
+            if (unlimited || shouldSee(p, player))
             {
                 ((CraftPlayer)p).getHandle().netServerHandler.sendPacket(new Packet29DestroyEntity(player.getEntityId()));
                 ((CraftPlayer)p).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn((EntityHuman) ((CraftPlayer)player).getHandle()));
@@ -190,7 +225,7 @@ public class ModMode extends JavaPlugin
         {
             if (p.getEntityId() == player.getEntityId())
                 continue;
-            if (Permissions.hasPermission(p, Permissions.VANISH_SHOWHIDDEN))
+            if (shouldSee(p, player))
                 continue;
 
             List<Player> trackers = p.getTrackers();
@@ -219,7 +254,7 @@ public class ModMode extends JavaPlugin
         {
             if (p.getEntityId() == player.getEntityId())
                 continue;
-            if (Permissions.hasPermission(p, Permissions.VANISH_SHOWHIDDEN))
+            if (shouldSee(p, player))
                 continue;
 
             List<Player> trackers = p.getTrackers();
