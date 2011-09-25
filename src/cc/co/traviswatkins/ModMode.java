@@ -149,7 +149,7 @@ public class ModMode extends JavaPlugin
     public boolean disableModMode(Player player)
     {
         if (!Permissions.hasPermission(player, Permissions.MODMODE_TOGGLE))
-            return false;
+            return true;
 
         if (!modmode.contains(player.getDisplayName()))
         {
@@ -167,7 +167,7 @@ public class ModMode extends JavaPlugin
     public boolean enableModMode(Player player)
     {
         if (!Permissions.hasPermission(player, Permissions.MODMODE_TOGGLE))
-            return false;
+            return true;
 
         if (modmode.contains(player.getDisplayName()))
         {
@@ -210,7 +210,7 @@ public class ModMode extends JavaPlugin
     public boolean disableVanish(Player player)
     {
         if (!Permissions.hasPermission(player, Permissions.UNVANISH))
-            return false;
+            return true;
 
         if (!isPlayerInvisible(player.getName()))
         {
@@ -244,7 +244,7 @@ public class ModMode extends JavaPlugin
     public boolean enableVanish(Player player)
     {
         if (!Permissions.hasPermission(player, Permissions.VANISH))
-            return false;
+            return true;
 
         if (!isPlayerInvisible(player.getName()))
             invisible.add(player.getName());
@@ -273,9 +273,15 @@ public class ModMode extends JavaPlugin
     private boolean vanishList(Player player)
     {
         if (!Permissions.hasPermission(player, Permissions.VANISH_LIST))
-            return false;
+            return true;
 
-        if (invisible.isEmpty())
+        Set<String> online = new HashSet<String>();
+        Player[] onlinePlayers = this.getServer().getOnlinePlayers();
+        for (Player p : onlinePlayers)
+            if (invisible.contains(player.getName()))
+                online.add(player.getDisplayName());
+
+        if (online.isEmpty())
         {
             player.sendMessage(ChatColor.RED + "Everyone is visible");
             return true;
@@ -283,11 +289,11 @@ public class ModMode extends JavaPlugin
 
         String message = "Invisible Players: ";
         int i = 0;
-        for (String name : invisible)
+        for (String name : online)
         {
             message += name;
             i++;
-            if (i != invisible.size())
+            if (i != online.size())
             {
                 message += " ";
             }
