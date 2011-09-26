@@ -220,6 +220,8 @@ public class ModMode extends JavaPlugin
 
         invisible.remove(player.getName());
 
+        List<Player> trackers = player.getTrackers();
+
         Player[] onlinePlayers = this.getServer().getOnlinePlayers();
         for (Player p : onlinePlayers)
         {
@@ -228,12 +230,12 @@ public class ModMode extends JavaPlugin
             if (shouldSee(p, player))
                 continue;
 
-            List<Player> trackers = p.getTrackers();
-            trackers.add(player);
-            p.setTrackers(trackers);
+            trackers.add(p);
 
             ((CraftPlayer)p).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn((EntityHuman) ((CraftPlayer)player).getHandle()));
         }
+
+        player.setTrackers(trackers);
 
         log.log(Level.INFO, player.getName() + " reappeared.");
         player.sendMessage(ChatColor.RED + "You have reappeared!");
@@ -249,6 +251,8 @@ public class ModMode extends JavaPlugin
         if (!isPlayerInvisible(player.getName()))
             invisible.add(player.getName());
 
+        List<Player> trackers = player.getTrackers();
+
         Player[] onlinePlayers = this.getServer().getOnlinePlayers();
         for (Player p : onlinePlayers)
         {
@@ -257,12 +261,13 @@ public class ModMode extends JavaPlugin
             if (shouldSee(p, player))
                 continue;
 
-            List<Player> trackers = p.getTrackers();
-            trackers.remove(player);
-            p.setTrackers(trackers);
+            if (trackers.contains(p))
+                trackers.remove(p);
 
             ((CraftPlayer)p).getHandle().netServerHandler.sendPacket(new Packet29DestroyEntity(player.getEntityId()));
         }
+
+        player.setTrackers(trackers);
 
         log.log(Level.INFO, player.getName() + " disappeared.");
         player.sendMessage(ChatColor.RED + "Poof!");
