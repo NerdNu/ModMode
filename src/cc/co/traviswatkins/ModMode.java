@@ -17,10 +17,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.nijiko.permissions.PermissionHandler;
 import java.io.File;
-import java.util.List;
-import net.minecraft.server.EntityHuman;
-import net.minecraft.server.Packet20NamedEntitySpawn;
-import net.minecraft.server.Packet29DestroyEntity;
+import net.minecraft.server.EntityPlayer;
+import net.minecraft.server.WorldServer;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 
 
@@ -178,31 +176,19 @@ public class ModMode extends JavaPlugin
         modmode.add(player.getDisplayName());
         // force save of original name player data before switching
         player.saveData();
+
+        EntityPlayer realPlayer = ((CraftPlayer)player).getHandle();
+        ((WorldServer)realPlayer.world).tracker.untrackEntity(realPlayer);
+
         String newname = player.getDisplayName().length() > 11 ? player.getDisplayName().substring(0, 11) : player.getDisplayName();
-        ((CraftPlayer)player).getHandle().name = ChatColor.GREEN + newname + ChatColor.WHITE;
+        realPlayer.name = ChatColor.GREEN + newname + ChatColor.WHITE;
         player.getInventory().clear();
         player.sendMessage(ChatColor.RED + "You are now in mod mode.");
 
-        boolean unlimited = Permissions.hasPermission(player, Permissions.UNVANISH_UNLIMITED);
-        if (!unlimited)
-            invisible.add(player.getName());
+        ((WorldServer)realPlayer.world).tracker.track(realPlayer);
 
-        Player[] onlinePlayers = this.getServer().getOnlinePlayers();
-        for (Player p : onlinePlayers)
-        {
-            if (p.getEntityId() == player.getEntityId())
-                continue;
-
-            if (unlimited || shouldSee(p, player))
-            {
-                ((CraftPlayer)p).getHandle().netServerHandler.sendPacket(new Packet29DestroyEntity(player.getEntityId()));
-                ((CraftPlayer)p).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn((EntityHuman) ((CraftPlayer)player).getHandle()));
-            }
-            else
-            {
-                ((CraftPlayer)p).getHandle().netServerHandler.sendPacket(new Packet29DestroyEntity(player.getEntityId()));
-            }
-        }
+        if (!Permissions.hasPermission(player, Permissions.UNVANISH_UNLIMITED))
+            enableVanish(player);
 
         return true;
     }
@@ -220,22 +206,9 @@ public class ModMode extends JavaPlugin
 
         invisible.remove(player.getName());
 
-        List<Player> trackers = player.getTrackers();
-
-        Player[] onlinePlayers = this.getServer().getOnlinePlayers();
-        for (Player p : onlinePlayers)
-        {
-            if (p.getEntityId() == player.getEntityId())
-                continue;
-            if (shouldSee(p, player))
-                continue;
-
-            trackers.add(p);
-
-            ((CraftPlayer)p).getHandle().netServerHandler.sendPacket(new Packet20NamedEntitySpawn((EntityHuman) ((CraftPlayer)player).getHandle()));
-        }
-
-        player.setTrackers(trackers);
+        EntityPlayer realPlayer = ((CraftPlayer)player).getHandle();
+        ((WorldServer)realPlayer.world).tracker.untrackEntity(realPlayer);
+        ((WorldServer)realPlayer.world).tracker.track(realPlayer);
 
         log.log(Level.INFO, player.getName() + " reappeared.");
         player.sendMessage(ChatColor.RED + "You have reappeared!");
@@ -251,23 +224,9 @@ public class ModMode extends JavaPlugin
         if (!isPlayerInvisible(player.getName()))
             invisible.add(player.getName());
 
-        List<Player> trackers = player.getTrackers();
-
-        Player[] onlinePlayers = this.getServer().getOnlinePlayers();
-        for (Player p : onlinePlayers)
-        {
-            if (p.getEntityId() == player.getEntityId())
-                continue;
-            if (shouldSee(p, player))
-                continue;
-
-            if (trackers.contains(p))
-                trackers.remove(p);
-
-            ((CraftPlayer)p).getHandle().netServerHandler.sendPacket(new Packet29DestroyEntity(player.getEntityId()));
-        }
-
-        player.setTrackers(trackers);
+        EntityPlayer realPlayer = ((CraftPlayer)player).getHandle();
+        ((WorldServer)realPlayer.world).tracker.untrackEntity(realPlayer);
+        ((WorldServer)realPlayer.world).tracker.track(realPlayer);
 
         log.log(Level.INFO, player.getName() + " disappeared.");
         player.sendMessage(ChatColor.RED + "Poof!");
