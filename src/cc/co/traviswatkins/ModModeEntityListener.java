@@ -1,5 +1,6 @@
 package cc.co.traviswatkins;
 
+import java.util.logging.Logger;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -21,16 +22,15 @@ public class ModModeEntityListener extends EntityListener
     public void onEntityDamage(EntityDamageEvent e)
     {
         // block PVP specifically
-        if (e instanceof EntityDamageByEntityEvent)
-        {
+        if (e instanceof EntityDamageByEntityEvent) {
             EntityDamageByEntityEvent event = (EntityDamageByEntityEvent) e;
             if ((event.getDamager() instanceof Player) && (event.getEntity() instanceof Player)) {
                 Player damager = (Player)event.getDamager();
                 Player damagee = (Player)event.getEntity();
-                if (plugin.isPlayerModMode(damager.getDisplayName()) || plugin.isPlayerInvisible(damager.getName())) {
+                if (plugin.isPlayerModMode(damager) || plugin.isPlayerInvisible(damager)) {
                     event.setCancelled(true);
                 }
-                else if (plugin.isPlayerModMode(damagee.getDisplayName()) && !plugin.isPlayerInvisible(damagee.getName())) {
+                else if (plugin.isPlayerModMode(damagee) && !plugin.isPlayerInvisible(damagee)) {
                     damager.sendMessage("This mod is in mod-mode.");
                     damager.sendMessage("This means you cannot damage them and they cannot deal damage.");
                     damager.sendMessage("Mod mod should only be used for official server business.");
@@ -41,10 +41,9 @@ public class ModModeEntityListener extends EntityListener
         }
 
         // block all damage to invisible people and people in mod mode
-        if (e.getEntity() instanceof Player)
-        {
+        if (e.getEntity() instanceof Player) {
             Player damagee = (Player)e.getEntity();
-            if (plugin.isPlayerModMode(damagee.getDisplayName()) || plugin.isPlayerInvisible(damagee.getName()))
+            if (plugin.isPlayerModMode(damagee) || plugin.isPlayerInvisible(damagee))
                 e.setCancelled(true);
         }
     }
@@ -57,7 +56,10 @@ public class ModModeEntityListener extends EntityListener
         
         Player player = (Player)e.getTarget();
         
-        if (!plugin.isPlayerInvisible(player.getName()))
+        if (!plugin.isPlayerInvisible(player))
+            return;
+
+        if (!plugin.isPlayerModMode(player))
             return;
         
         e.setCancelled(true);
@@ -69,9 +71,10 @@ public class ModModeEntityListener extends EntityListener
     {
         if (!(e.getEntity() instanceof Player))
             return;
+        e.setHandled(true);
 
         Player player = (Player)e.getEntity();
-        if (plugin.isPlayerInvisible(player.getName()))
+        if (plugin.isPlayerInvisible(player))
             if (!plugin.shouldSee(e.getTracker(), player))
                 e.setCancelled(true);
     }

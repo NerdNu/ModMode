@@ -18,7 +18,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import com.nijiko.permissions.PermissionHandler;
 import java.io.File;
 import net.minecraft.server.EntityPlayer;
-import net.minecraft.server.WorldServer;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 
 
@@ -34,14 +33,14 @@ public class ModMode extends JavaPlugin
     private final ModModePlayerListener playerListener = new ModModePlayerListener(this);
     protected static final Logger log = Logger.getLogger("Minecraft");
 
-    public boolean isPlayerInvisible(String name)
+    public boolean isPlayerInvisible(Player player)
     {
-        return invisible.contains(name);
+        return invisible.contains(player.getName());
     }
 
-    public boolean isPlayerModMode(String name)
+    public boolean isPlayerModMode(Player player)
     {
-        return modmode.contains(name);
+        return modmode.contains(player.getDisplayName());
     }
 
     // should p1 be able to see p2?
@@ -87,7 +86,7 @@ public class ModMode extends JavaPlugin
     {
         save();
 
-        log.log(Level.INFO, "[" + getDescription().getName() + ")] " + getDescription().getVersion() + " disabled.");
+        log.log(Level.INFO, "[" + getDescription().getName() + "] " + getDescription().getVersion() + " disabled.");
     }
 
     @Override
@@ -167,7 +166,7 @@ public class ModMode extends JavaPlugin
         if (!Permissions.hasPermission(player, Permissions.MODMODE_TOGGLE))
             return true;
 
-        if (modmode.contains(player.getDisplayName()))
+        if (isPlayerModMode(player))
         {
             player.sendMessage(ChatColor.RED + "You are already in mod mode!");
             return false;
@@ -178,14 +177,19 @@ public class ModMode extends JavaPlugin
         player.saveData();
 
         EntityPlayer realPlayer = ((CraftPlayer)player).getHandle();
-        ((WorldServer)realPlayer.world).tracker.untrackEntity(realPlayer);
 
-        String newname = player.getDisplayName().length() > 11 ? player.getDisplayName().substring(0, 11) : player.getDisplayName();
-        realPlayer.name = ChatColor.GREEN + newname + ChatColor.WHITE;
+        realPlayer.name = ChatColor.GREEN + player.getDisplayName() + ChatColor.WHITE;
         player.getInventory().clear();
         player.sendMessage(ChatColor.RED + "You are now in mod mode.");
 
-        ((WorldServer)realPlayer.world).tracker.track(realPlayer);
+        // hack to avoid calling in to EntityTracker
+        player.setInvisible(true);
+        player.setInvisible(false);
+
+        if (isPlayerInvisible(player)) {
+            enableVanish(player);
+            return true;
+        }
 
         if (!Permissions.hasPermission(player, Permissions.UNVANISH_UNLIMITED))
             enableVanish(player);
@@ -198,17 +202,14 @@ public class ModMode extends JavaPlugin
         if (!Permissions.hasPermission(player, Permissions.UNVANISH))
             return true;
 
-        if (!isPlayerInvisible(player.getName()))
+        if (!isPlayerInvisible(player))
         {
             player.sendMessage(ChatColor.RED + "You are not vanished!");
             return true;
         }
 
         invisible.remove(player.getName());
-
-        EntityPlayer realPlayer = ((CraftPlayer)player).getHandle();
-        ((WorldServer)realPlayer.world).tracker.untrackEntity(realPlayer);
-        ((WorldServer)realPlayer.world).tracker.track(realPlayer);
+        player.setInvisible(false);
 
         log.log(Level.INFO, player.getName() + " reappeared.");
         player.sendMessage(ChatColor.RED + "You have reappeared!");
@@ -221,12 +222,10 @@ public class ModMode extends JavaPlugin
         if (!Permissions.hasPermission(player, Permissions.VANISH))
             return true;
 
-        if (!isPlayerInvisible(player.getName()))
+        if (!isPlayerInvisible(player))
             invisible.add(player.getName());
 
-        EntityPlayer realPlayer = ((CraftPlayer)player).getHandle();
-        ((WorldServer)realPlayer.world).tracker.untrackEntity(realPlayer);
-        ((WorldServer)realPlayer.world).tracker.track(realPlayer);
+        player.setInvisible(true);
 
         log.log(Level.INFO, player.getName() + " disappeared.");
         player.sendMessage(ChatColor.RED + "Poof!");
@@ -242,8 +241,8 @@ public class ModMode extends JavaPlugin
         Set<String> online = new HashSet<String>();
         Player[] onlinePlayers = this.getServer().getOnlinePlayers();
         for (Player p : onlinePlayers)
-            if (invisible.contains(player.getName()))
-                online.add(player.getDisplayName());
+            if (isPlayerInvisible(p))
+                online.add(p.getDisplayName());
 
         if (online.isEmpty())
         {

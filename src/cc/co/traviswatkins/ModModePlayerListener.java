@@ -18,25 +18,25 @@ public class ModModePlayerListener extends PlayerListener
     {
         plugin = instance;
     }
-        
+
     @Override
     public void onPlayerJoin(PlayerJoinEvent event)
     {
         vanishForJoinOrRespawn(event.getPlayer(), true);
-        if (plugin.isPlayerInvisible(event.getPlayer().getName()))
+        if (plugin.isPlayerInvisible(event.getPlayer()))
             event.setJoinMessage(null);
 
-        if (plugin.isPlayerModMode(event.getPlayer().getDisplayName()))
+        if (plugin.isPlayerModMode(event.getPlayer()))
             plugin.modmode.remove(event.getPlayer().getDisplayName());
     }
 
     @Override
     public void onPlayerQuit(PlayerQuitEvent event)
     {
-        if (plugin.isPlayerInvisible(event.getPlayer().getName()))
+        if (plugin.isPlayerInvisible(event.getPlayer()))
             event.setQuitMessage(null);
 
-        if (plugin.isPlayerModMode(event.getPlayer().getDisplayName()))
+        if (plugin.isPlayerModMode(event.getPlayer()))
             plugin.modmode.remove(event.getPlayer().getDisplayName());
     }
         
@@ -48,7 +48,7 @@ public class ModModePlayerListener extends PlayerListener
                 
     private void vanishForJoinOrRespawn(Player player, boolean notify)
     {
-        if(plugin.isPlayerInvisible(player.getName()))
+        if(plugin.isPlayerInvisible(player))
         {
             if(notify)
             {
@@ -64,14 +64,14 @@ public class ModModePlayerListener extends PlayerListener
     {
         Player player = event.getPlayer();
     
-        if(plugin.isPlayerInvisible(player.getName()))
+        if(plugin.isPlayerInvisible(player))
             event.setCancelled(true);
     }
 
     @Override
     public void onPlayerDropItem (PlayerDropItemEvent event)
     {
-        if (plugin.isPlayerModMode(event.getPlayer().getDisplayName()) || plugin.isPlayerInvisible(event.getPlayer().getName()))
+        if (plugin.isPlayerModMode(event.getPlayer()) || plugin.isPlayerInvisible(event.getPlayer()))
             event.setCancelled(true);
     }
 
