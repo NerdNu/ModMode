@@ -82,7 +82,7 @@
 						<archive>
 							<addMavenDescriptor>false</addMavenDescriptor>
 						</archive>
-						<finalName>StopDrops</finalName>
+						<finalName>ModMode</finalName>
 					</configuration>
 				</plugin>
 				<plugin>
