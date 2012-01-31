@@ -75,6 +75,13 @@ public class ModModeListener implements Listener {
         if (plugin.isPlayerModMode(event.getPlayer())) {
             plugin.modmode.remove(event.getPlayer().getDisplayName());
         }
+
+        for (String name : plugin.invisible) {
+            Player player = plugin.getServer().getPlayerExact(name);
+            if (player != null && !plugin.shouldSee(event.getPlayer(), player)) {
+                event.getPlayer().hidePlayer(player);
+            }
+        }
     }
 
     @EventHandler

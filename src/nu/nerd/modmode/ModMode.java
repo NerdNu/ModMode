@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.minecraft.server.EntityPlayer;
+import net.minecraft.server.WorldServer;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -18,7 +19,7 @@ public class ModMode extends JavaPlugin
 {
     private SerializedPersistance persistance;
 
-    private Set<String> invisible;
+    public Set<String> invisible;
     public Set<String> modmode;
 
     private final ModModeListener listener = new ModModeListener(this);
@@ -165,8 +166,9 @@ public class ModMode extends JavaPlugin
         player.sendMessage(ChatColor.RED + "You are now in mod mode.");
 
         // hack to avoid calling in to EntityTracker
-        player.setInvisible(true);
-        player.setInvisible(false);
+        EntityPlayer entity = ((CraftPlayer)player).getHandle();
+        ((WorldServer)entity.world).tracker.untrackEntity(entity);
+        ((WorldServer)entity.world).tracker.track(entity);
 
         if (isPlayerInvisible(player)) {
             enableVanish(player);
@@ -191,7 +193,9 @@ public class ModMode extends JavaPlugin
         }
 
         invisible.remove(player.getName());
-        player.setInvisible(false);
+        for (Player other : getServer().getOnlinePlayers()) {
+            other.showPlayer(player);
+        }
 
         log.log(Level.INFO, player.getName() + " reappeared.");
         player.sendMessage(ChatColor.RED + "You have reappeared!");
@@ -207,7 +211,11 @@ public class ModMode extends JavaPlugin
         if (!isPlayerInvisible(player))
             invisible.add(player.getName());
 
-        player.setInvisible(true);
+        for (Player other : getServer().getOnlinePlayers()) {
+            if (!shouldSee(other, player)) {
+                other.hidePlayer(player);
+            }
+        }
 
         log.log(Level.INFO, player.getName() + " disappeared.");
         player.sendMessage(ChatColor.RED + "Poof!");

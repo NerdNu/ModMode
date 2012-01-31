@@ -1,5 +1,5 @@
 name: ModMode
-main: cc.co.traviswatkins.ModMode
+main: nu.nerd.modmode.ModMode
 version: 0.2
 author: Travis Watkins
 
