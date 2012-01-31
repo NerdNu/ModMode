@@ -11,9 +11,6 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event;
-import org.bukkit.event.Event.Priority;
-import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 
@@ -24,8 +21,7 @@ public class ModMode extends JavaPlugin
     private Set<String> invisible;
     public Set<String> modmode;
 
-    private final ModModeEntityListener entityListener = new ModModeEntityListener(this);
-    private final ModModePlayerListener playerListener = new ModModePlayerListener(this);
+    private final ModModeListener listener = new ModModeListener(this);
     protected static final Logger log = Logger.getLogger("Minecraft");
 
     public boolean isPlayerInvisible(Player player)
@@ -87,15 +83,7 @@ public class ModMode extends JavaPlugin
     @Override
     public void onEnable()
     {
-        PluginManager pm = getServer().getPluginManager();
-        pm.registerEvent(Event.Type.ENTITY_TARGET, entityListener, Priority.Normal, this);
-        pm.registerEvent(Event.Type.ENTITY_DAMAGE, entityListener, Priority.Normal, this);
-
-        pm.registerEvent(Event.Type.PLAYER_JOIN,        playerListener, Priority.Normal, this);
-        pm.registerEvent(Event.Type.PLAYER_QUIT,        playerListener, Priority.Normal, this);
-        pm.registerEvent(Event.Type.PLAYER_RESPAWN,     playerListener, Priority.Normal, this);
-        pm.registerEvent(Event.Type.PLAYER_PICKUP_ITEM, playerListener, Priority.Normal, this);
-        pm.registerEvent(Event.Type.PLAYER_DROP_ITEM,   playerListener, Priority.Normal, this);
+        getServer().getPluginManager().registerEvents(listener, this);
  
         load();
 
