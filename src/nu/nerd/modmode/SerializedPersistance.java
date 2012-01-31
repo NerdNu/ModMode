@@ -1,6 +1,6 @@
 // this file taken from CommandHelper plugin, original written by Layton Smith
 
-package cc.co.traviswatkins;
+package nu.nerd.modmode;
 
 import java.io.File;
 import java.io.FileInputStream;

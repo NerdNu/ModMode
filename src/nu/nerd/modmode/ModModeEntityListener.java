@@ -1,12 +1,10 @@
-package cc.co.traviswatkins;
+package nu.nerd.modmode;
 
-import java.util.logging.Logger;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityListener;
 import org.bukkit.event.entity.EntityTargetEvent;
-import org.bukkit.event.entity.EntityTrackEvent;
 
 
 public class ModModeEntityListener extends EntityListener 
@@ -63,20 +61,5 @@ public class ModModeEntityListener extends EntityListener
             return;
         
         e.setCancelled(true);
-        return;
     }
-
-    @Override
-    public void onEntityTrack(EntityTrackEvent e)
-    {
-        if (!(e.getEntity() instanceof Player))
-            return;
-        e.setHandled(true);
-
-        Player player = (Player)e.getEntity();
-        if (plugin.isPlayerInvisible(player))
-            if (!plugin.shouldSee(e.getTracker(), player))
-                e.setCancelled(true);
-    }
-
 }

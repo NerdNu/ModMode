@@ -1,4 +1,4 @@
-package cc.co.traviswatkins;
+package nu.nerd.modmode;
 
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;

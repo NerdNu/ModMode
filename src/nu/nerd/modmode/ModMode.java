@@ -1,29 +1,24 @@
-package cc.co.traviswatkins;
+package nu.nerd.modmode;
 
+import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-
+import net.minecraft.server.EntityPlayer;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.Event.Priority;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import com.nijiko.permissions.PermissionHandler;
-import java.io.File;
-import net.minecraft.server.EntityPlayer;
-import org.bukkit.craftbukkit.entity.CraftPlayer;
-
 
 public class ModMode extends JavaPlugin
 {
-    public static PermissionHandler permissionHandler;
     private SerializedPersistance persistance;
 
     private Set<String> invisible;
@@ -94,7 +89,6 @@ public class ModMode extends JavaPlugin
     {
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvent(Event.Type.ENTITY_TARGET, entityListener, Priority.Normal, this);
-        pm.registerEvent(Event.Type.ENTITY_TRACK,  entityListener, Priority.Low,    this);
         pm.registerEvent(Event.Type.ENTITY_DAMAGE, entityListener, Priority.Normal, this);
 
         pm.registerEvent(Event.Type.PLAYER_JOIN,        playerListener, Priority.Normal, this);
