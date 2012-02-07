@@ -137,8 +137,6 @@ public class ModMode extends JavaPlugin
             return false;
         }
 
-        modmode.remove(player.getDisplayName());
-
         player.kickPlayer("You are no longer in mod mode!");
 
         return true;
@@ -163,6 +161,8 @@ public class ModMode extends JavaPlugin
 
         realPlayer.name = ChatColor.GREEN + player.getDisplayName() + ChatColor.WHITE;
         player.getInventory().clear();
+        player.getInventory().setArmorContents(null);
+        player.setFoodLevel(20);
         player.sendMessage(ChatColor.RED + "You are now in mod mode.");
 
         // hack to avoid calling in to EntityTracker

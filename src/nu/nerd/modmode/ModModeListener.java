@@ -1,12 +1,13 @@
 package nu.nerd.modmode;
 
-import org.bukkit.ChatColor;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
+import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.*;
 
 
@@ -28,10 +29,9 @@ public class ModModeListener implements Listener {
                 if (plugin.isPlayerModMode(damager) || plugin.isPlayerInvisible(damager)) {
                     event.setCancelled(true);
                 } else if (plugin.isPlayerModMode(damagee) && !plugin.isPlayerInvisible(damagee)) {
-                    damager.sendMessage("This mod is in mod-mode.");
-                    damager.sendMessage("This means you cannot damage them and they cannot deal damage.");
-                    damager.sendMessage("Mod mod should only be used for official server business.");
-                    damager.sendMessage("Please let an admin know if a mod is abusing mod-mode.");
+                    damager.sendMessage("This mod is in modmode.");
+                    damager.sendMessage("Modmode should only be used for official server business.");
+                    damager.sendMessage("Please let an admin know if a mod is abusing modmode.");
                     event.setCancelled(true);
                 }
             }
@@ -44,6 +44,25 @@ public class ModModeListener implements Listener {
                 e.setCancelled(true);
             }
         }
+    }
+
+    @EventHandler
+    public void onFoodLevelChangeEvent(FoodLevelChangeEvent e) {
+        if (!(e.getEntity() instanceof Player)) {
+            return;
+        }
+
+        Player player = (Player) e.getEntity();
+
+        if (!plugin.isPlayerInvisible(player)) {
+            return;
+        }
+
+        if (!plugin.isPlayerModMode(player)) {
+            return;
+        }
+
+        e.setCancelled(true);
     }
 
     @EventHandler
@@ -67,9 +86,16 @@ public class ModModeListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        vanishForJoinOrRespawn(event.getPlayer(), true);
+        vanishForJoinOrRespawn(event.getPlayer());
         if (plugin.isPlayerInvisible(event.getPlayer())) {
+            // send our own message only to people who can see the player
+            String message = event.getJoinMessage();
             event.setJoinMessage(null);
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.canSee(event.getPlayer())) {
+                    player.sendRawMessage(message);
+                }
+            }
         }
 
         if (plugin.isPlayerModMode(event.getPlayer())) {
@@ -87,17 +113,20 @@ public class ModModeListener implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         if (plugin.isPlayerInvisible(event.getPlayer())) {
+            // send our own message only to people who can see the player
+            String message = event.getQuitMessage();
             event.setQuitMessage(null);
-        }
-
-        if (plugin.isPlayerModMode(event.getPlayer())) {
-            plugin.modmode.remove(event.getPlayer().getDisplayName());
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.canSee(event.getPlayer())) {
+                    player.sendRawMessage(message);
+                }
+            }
         }
     }
 
     @EventHandler
     public void onPlayerRespawn(PlayerRespawnEvent event) {
-        vanishForJoinOrRespawn(event.getPlayer(), false);
+        vanishForJoinOrRespawn(event.getPlayer());
     }
 
     @EventHandler
@@ -116,12 +145,8 @@ public class ModModeListener implements Listener {
         }
     }
 
-    private void vanishForJoinOrRespawn(Player player, boolean notify) {
+    private void vanishForJoinOrRespawn(Player player) {
         if (plugin.isPlayerInvisible(player)) {
-            if (notify) {
-                player.sendMessage(ChatColor.RED + "You are currently invisible!");
-            }
-
             plugin.enableVanish(player);
         }
     }
