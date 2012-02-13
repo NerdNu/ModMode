@@ -121,6 +121,10 @@ public class ModModeListener implements Listener {
                     player.sendRawMessage(message);
                 }
             }
+
+            for (Player other : Bukkit.getOnlinePlayers()) {
+                other.showPlayer(event.getPlayer());
+            }
         }
     }
 
