@@ -1,62 +1,77 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>ModMode</groupId>
+	<groupId>nu.nerd</groupId>
 	<artifactId>ModMode</artifactId>
-	<version>0.1</version>
+	<version>1.0</version>
 	<packaging>jar</packaging>
 	<name>ModMode</name>
-	<scm>
-		<connection>scm:git:git://github.com/nerdnu/ModMode.git</connection>
-		<url>https://github.com/nerdnu/ModMode</url>
-		<developerConnection>scm:git:git://github.com/nerdnu/ModMode.git</developerConnection>
-	</scm>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.bukkit</groupId>
+			<artifactId>bukkit</artifactId>
+			<version>1.1-R4-SNAPSHOT</version>
+			<type>jar</type>
+			<scope>compile</scope>
+		</dependency>
+                <dependency>
+                        <groupId>org.bukkit</groupId>
+                        <artifactId>craftbukkit</artifactId>
+                        <version>1.1-R4-SNAPSHOT</version>
+                        <type>jar</type>
+                        <scope>compile</scope>
+                </dependency>
+	</dependencies>
+	<distributionManagement>
+		<repository>
+			<id>repobo-rel</id>
+			<name>repo.bukkit.org Releases</name>
+			<url>http://repo.bukkit.org/content/repositories/releases/</url>
+		</repository>
+		<snapshotRepository>
+			<id>repobo-snap</id>
+			<name>repo.bukkit.org Snapshots</name>
+			<url>http://repo.bukkit.org/content/repositories/snapshots/</url>
+		</snapshotRepository>
+	</distributionManagement>
+
+	<repositories>
+		<repository>
+			<id>repobo-snap</id>
+			<url>http://repo.bukkit.org/content/groups/public</url>
+		</repository>
+	</repositories>
+
 	<pluginRepositories>
 		<pluginRepository>
 			<id>bukkit-plugins</id>
 			<url>http://repo.bukkit.org/content/groups/public</url>
 		</pluginRepository>
 	</pluginRepositories>
-	<dependencies>
-		<dependency>
-			<groupId>org.bukkit</groupId>
-			<artifactId>craftbukkit</artifactId>
-			<version>1.1-R4-SNAPSHOT</version>
-		</dependency>
-		<dependency>
-			<groupId>org.bukkit</groupId>
-			<artifactId>bukkit</artifactId>
-			<version>1.1-R4-SNAPSHOT</version>
-		</dependency>
-	</dependencies>
-	<repositories>
-		<repository>
-			<id>bukkit-repo</id>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-			<releases>
-				<enabled>true</enabled>
-			</releases>
-			<url>http://repo.bukkit.org/content/repositories/snapshots</url>
-		</repository>
-	</repositories>
+	<description>Vanish and ModMode</description>
+	<url>https://github.com/nerdnu/ModMode</url>
+	<scm>
+		<connection>scm:git:https://github.com/nerdnu/ModMode.git</connection>
+		<developerConnection>scm:git:https://github.com/nerdnu/ModMode.git</developerConnection>
+		<url>https://github.com/nerdnu/ModMode</url>
+	</scm>
 	<build>
 		<sourceDirectory>${basedir}/src</sourceDirectory>
 		<resources>
 			<resource>
 				<targetPath>.</targetPath>
 				<filtering>true</filtering>
-				<directory>${basedir}/src</directory>
+				<directory>.</directory>
 				<includes>
 					<include>plugin.yml</include>
+					<include>LICENSE</include>
 				</includes>
 			</resource>
 		</resources>
-		<defaultGoal>clean package</defaultGoal>
+		<defaultGoal>clean install</defaultGoal>
 		<pluginManagement>
 			<plugins>
 				<plugin>

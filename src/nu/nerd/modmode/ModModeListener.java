@@ -7,151 +7,130 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
-import org.bukkit.event.entity.FoodLevelChangeEvent;
-import org.bukkit.event.player.*;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerPickupItemEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 
 public class ModModeListener implements Listener {
     private final ModMode plugin;
 
-    public ModModeListener(ModMode instance) {
+    public class ModModeRunnable implements Runnable {
+        private final Player player;
+
+        public ModModeRunnable(Player foo) {
+            player = foo;
+        }
+
+        public void run() {
+            plugin.toggleModMode(player, true, true);
+        }
+    }
+
+
+    ModModeListener(ModMode instance) {
         plugin = instance;
     }
 
     @EventHandler
-    public void onEntityDamage(EntityDamageEvent e) {
-        // block PVP specifically
-        if (e instanceof EntityDamageByEntityEvent) {
-            EntityDamageByEntityEvent event = (EntityDamageByEntityEvent) e;
-            if ((event.getDamager() instanceof Player) && (event.getEntity() instanceof Player)) {
-                Player damager = (Player) event.getDamager();
-                Player damagee = (Player) event.getEntity();
-                if (plugin.isPlayerModMode(damager) || plugin.isPlayerInvisible(damager)) {
-                    event.setCancelled(true);
-                } else if (plugin.isPlayerModMode(damagee) && !plugin.isPlayerInvisible(damagee)) {
-                    damager.sendMessage("This mod is in modmode.");
-                    damager.sendMessage("Modmode should only be used for official server business.");
-                    damager.sendMessage("Please let an admin know if a mod is abusing modmode.");
-                    event.setCancelled(true);
-                }
-            }
-        }
-
-        // block all damage to invisible people and people in mod mode
-        if (e.getEntity() instanceof Player) {
-            Player damagee = (Player) e.getEntity();
-            if (plugin.isPlayerModMode(damagee) || plugin.isPlayerInvisible(damagee)) {
-                e.setCancelled(true);
-            }
-        }
-    }
-
-    @EventHandler
-    public void onFoodLevelChangeEvent(FoodLevelChangeEvent e) {
-        if (!(e.getEntity() instanceof Player)) {
-            return;
-        }
-
-        Player player = (Player) e.getEntity();
-
-        if (!plugin.isPlayerInvisible(player)) {
-            return;
-        }
-
-        if (!plugin.isPlayerModMode(player)) {
-            return;
-        }
-
-        e.setCancelled(true);
-    }
-
-    @EventHandler
-    public void onEntityTarget(EntityTargetEvent e) {
-        if (!(e.getTarget() instanceof Player)) {
-            return;
-        }
-
-        Player player = (Player) e.getTarget();
-
-        if (!plugin.isPlayerInvisible(player)) {
-            return;
-        }
-
-        if (!plugin.isPlayerModMode(player)) {
-            return;
-        }
-
-        e.setCancelled(true);
-    }
-
-    @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        vanishForJoinOrRespawn(event.getPlayer());
-        if (plugin.isPlayerInvisible(event.getPlayer())) {
-            // send our own message only to people who can see the player
+        Player player = event.getPlayer();
+
+        if (plugin.modmode.contains(player.getDisplayName()) && !player.getName().startsWith("\u00A7")) {
+            event.setJoinMessage(null);
+            Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new ModModeRunnable(player));
+        }
+
+        if (plugin.vanished.contains(player.getName()))
+            plugin.enableVanish(player);
+        if (plugin.fullvanished.contains(player.getName()))
+            plugin.enableFullVanish(player);
+
+        plugin.updateVanishLists(player);
+
+        // send our own join message only to people who can see the player
+        if (plugin.isInvisible(player) && event.getJoinMessage() != null) {
             String message = event.getJoinMessage();
             event.setJoinMessage(null);
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.canSee(event.getPlayer())) {
-                    player.sendRawMessage(message);
+            for (Player other : Bukkit.getOnlinePlayers()) {
+                if (other.canSee(player)) {
+                    player.sendMessage(message);
                 }
-            }
-        }
-
-        if (plugin.isPlayerModMode(event.getPlayer())) {
-            plugin.modmode.remove(event.getPlayer().getDisplayName());
-        }
-
-        for (String name : plugin.invisible) {
-            Player player = plugin.getServer().getPlayerExact(name);
-            if (player != null && !plugin.shouldSee(event.getPlayer(), player)) {
-                event.getPlayer().hidePlayer(player);
             }
         }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        if (plugin.isPlayerInvisible(event.getPlayer())) {
-            // send our own message only to people who can see the player
+        // send our own quit message only to people who can see the player
+        Player player = event.getPlayer();
+        if (plugin.isInvisible(player) && event.getQuitMessage() != null) {
             String message = event.getQuitMessage();
             event.setQuitMessage(null);
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.canSee(event.getPlayer())) {
-                    player.sendRawMessage(message);
+            for (Player other : Bukkit.getOnlinePlayers()) {
+                if (other.canSee(player)) {
+                    player.sendMessage(message);
                 }
             }
+        }
 
-            for (Player other : Bukkit.getOnlinePlayers()) {
-                other.showPlayer(event.getPlayer());
+        //make sure we're visible to everyone when leaving (hack, CB update fixes it)
+        for (Player other : Bukkit.getOnlinePlayers()) {
+            other.showPlayer(player);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPlayerPickupItem(PlayerPickupItemEvent event) {
+        if (plugin.isInvisible(event.getPlayer()))
+            event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onPlayerDropItem(PlayerDropItemEvent event) {
+        if (plugin.isInvisible(event.getPlayer()))
+            event.setCancelled(true);
+        if (plugin.isModMode(event.getPlayer()))
+            event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityTarget(EntityTargetEvent event) {
+        if (!(event.getTarget() instanceof Player))
+            return;
+
+        Player player = (Player) event.getTarget();
+        if (plugin.isModMode(player) || plugin.isInvisible(player))
+            event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityDamage(EntityDamageEvent event) {
+        // block PVP with a message
+        if (event instanceof EntityDamageByEntityEvent) {
+            EntityDamageByEntityEvent e = (EntityDamageByEntityEvent) event;
+            if (e.getDamager() instanceof Player && e.getEntity() instanceof Player) {
+                Player damager = (Player) e.getDamager();
+                Player victim = (Player) e.getEntity();
+                if (plugin.isModMode(damager) || plugin.isInvisible(damager)) {
+                    event.setCancelled(true);
+                }
+                // only show message if they aren't invisible
+                else if (plugin.isModMode(victim) && !plugin.isInvisible(victim)) {
+                    damager.sendMessage("This moderator is in ModMode.");
+                    damager.sendMessage("ModMode should only be used for official server business.");
+                    damager.sendMessage("Please let an admin know if a moderator is abusing ModMode.");
+                }
             }
         }
-    }
 
-    @EventHandler
-    public void onPlayerRespawn(PlayerRespawnEvent event) {
-        vanishForJoinOrRespawn(event.getPlayer());
-    }
-
-    @EventHandler
-    public void onPlayerPickupItem(PlayerPickupItemEvent event) {
-        Player player = event.getPlayer();
-
-        if (plugin.isPlayerInvisible(player)) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler
-    public void onPlayerDropItem(PlayerDropItemEvent event) {
-        if (plugin.isPlayerModMode(event.getPlayer()) || plugin.isPlayerInvisible(event.getPlayer())) {
-            event.setCancelled(true);
-        }
-    }
-
-    private void vanishForJoinOrRespawn(Player player) {
-        if (plugin.isPlayerInvisible(player)) {
-            plugin.enableVanish(player);
+        // block all damage to invisible and modmode players
+        if (event.getEntity() instanceof Player) {
+            Player victim = (Player) event.getEntity();
+            if (plugin.isModMode(victim) || plugin.isInvisible(victim)) {
+                event.setCancelled(true);
+            }
         }
     }
 }
