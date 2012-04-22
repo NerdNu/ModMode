@@ -159,6 +159,9 @@ public class ModMode extends JavaPlugin {
                 other.showPlayer(player);
             }
         }
+        
+        //enable/disable flying while coming in/out of modmode
+        entityplayer.setAllowFlight(toggle);
 
 /*        EntityPlayer oldplayer = ((CraftPlayer) player).getHandle();
         MinecraftServer server = oldplayer.server;
