@@ -1,0 +1,13 @@
+## ModMode ##
+*Keeping staff and players separate since 1869*
+
+#### Configuration Example
+    vanished: []
+    fullvanished: []
+    modmode: []
+    allow:
+       flight: true
+
+`vanished`, `fullvanished` and `modmode` are used internally and should not be manually edited.
+
+The config option `allow.flight` will allow ModMode players to fly.

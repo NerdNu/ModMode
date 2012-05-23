@@ -21,6 +21,7 @@ public class ModMode extends JavaPlugin {
     public List<String> vanished;
     public List<String> fullvanished;
     public List<String> modmode;
+    public boolean allowFlight;
 
     public boolean isInvisible(Player player) {
         return vanished.contains(player.getName()) || fullvanished.contains(player.getName());
@@ -159,6 +160,11 @@ public class ModMode extends JavaPlugin {
                 other.showPlayer(player);
             }
         }
+        
+        //toggle flight, set via the config path "allow.flight"
+        if (allowFlight) {
+        	player.setAllowFlight(toggle);
+        }
 
 /*        EntityPlayer oldplayer = ((CraftPlayer) player).getHandle();
         MinecraftServer server = oldplayer.server;
@@ -239,6 +245,7 @@ public class ModMode extends JavaPlugin {
         vanished = getConfig().getStringList("vanished");
         fullvanished = getConfig().getStringList("fullvanished");
         modmode = getConfig().getStringList("modmode");
+        allowFlight = getConfig().getBoolean("allow.flight");
     }
 
     @Override
@@ -246,6 +253,7 @@ public class ModMode extends JavaPlugin {
         getConfig().set("vanished", vanished);
         getConfig().set("fullvanished", fullvanished);
         getConfig().set("modmode", modmode);
+        getConfig().set("allow.flight", allowFlight);
         saveConfig();
     }
 
