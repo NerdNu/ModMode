@@ -10,4 +10,4 @@
 
 `vanished`, `fullvanished` and `modmode` are used internally and should not be manually edited.
 
-The config option `allow.flight` will allow ModMode players to fly.
+The config option `allow.flight` will allow ModMode players to fly. If not configured it will default to false.
