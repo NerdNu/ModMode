@@ -127,21 +127,21 @@ public class ModMode extends JavaPlugin {
             PlayerQuitEvent playerQuitEvent = new PlayerQuitEvent(player, "\u00A7e" + entityplayer.name + " left the game.");
             getServer().getPluginManager().callEvent(playerQuitEvent);
             if ((playerQuitEvent.getQuitMessage() != null) && (playerQuitEvent.getQuitMessage().length() > 0)) {
-                server.serverConfigurationManager.sendAll(new Packet3Chat(playerQuitEvent.getQuitMessage()));
+                server.getServerConfigurationManager().sendAll(new Packet3Chat(playerQuitEvent.getQuitMessage()));
             }
         }
 
         //save with the old name, change it, then load with the new name
-        server.serverConfigurationManager.playerFileData.save(entityplayer);
+        server.getServerConfigurationManager().playerFileData.save(entityplayer);
         entityplayer.name = name;
         entityplayer.displayName = displayName;
-        server.serverConfigurationManager.playerFileData.load(entityplayer);
+        server.getServerConfigurationManager().playerFileData.load(entityplayer);
 
         //send fake join message
         PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(player, "\u00A7e" + entityplayer.name + " joined the game.");
         getServer().getPluginManager().callEvent(playerJoinEvent);
         if ((playerJoinEvent.getJoinMessage() != null) && (playerJoinEvent.getJoinMessage().length() > 0)) {
-            server.serverConfigurationManager.sendAll(new Packet3Chat(playerJoinEvent.getJoinMessage()));
+            server.getServerConfigurationManager().sendAll(new Packet3Chat(playerJoinEvent.getJoinMessage()));
         }
 
         //untrack and track to show new name to clients
