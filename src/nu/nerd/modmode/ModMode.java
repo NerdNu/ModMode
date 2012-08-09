@@ -161,7 +161,7 @@ public class ModMode extends JavaPlugin {
                 server.getServerConfigurationManager().sendAll(new Packet3Chat(playerQuitEvent.getQuitMessage()));
             }
         }
-
+        ((WorldServer) entityplayer.world).tracker.untrackEntity(entityplayer);
         //save with the old name, change it, then load with the new name
         server.getServerConfigurationManager().playerFileData.save(entityplayer);
         entityplayer.name = name;
@@ -176,10 +176,8 @@ public class ModMode extends JavaPlugin {
         }
 
         //untrack and track to show new name to clients
-        ((WorldServer) entityplayer.world).tracker.untrackEntity(entityplayer);
-        ((WorldServer) entityplayer.world).tracker.track(entityplayer);
         
-        server.getServerConfigurationManager().sendPacketNearby(player.getLocation().getX(), player.getLocation().getY(), player.getLocation().getZ(), 50, ((CraftWorld)player.getWorld()).getHandle().dimension, new Packet20NamedEntitySpawn(entityplayer));
+        ((WorldServer) entityplayer.world).tracker.track(entityplayer);
 
         //teleport to avoid speedhack
         if (!toggle || onJoin) {
