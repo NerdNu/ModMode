@@ -283,6 +283,10 @@ public class ModMode extends JavaPlugin {
         getConfig().set("vanished", vanished);
         getConfig().set("fullvanished", fullvanished);
         getConfig().set("modmode", modmode);
+        getConfig().set("allow.flight", allowFlight);
+        getConfig().set("bperms.enabled", usingbperms);
+        getConfig().set("bperms.modgroup", bPermsModGroup);
+        getConfig().set("bperms.modmodegroup", bPermsModModeGroup);
         saveConfig();
     }
 
