@@ -6,7 +6,7 @@ author: Travis Watkins
 website: ${project.url}
 
 main: nu.nerd.modmode.ModMode
-
+softdepend: [bPermissions]
 
 commands:
   vanish:

@@ -1,10 +1,10 @@
 package nu.nerd.modmode;
 
+import de.bananaco.bpermissions.api.ApiLayer;
+import de.bananaco.bpermissions.api.util.CalculableType;
 import java.util.List;
-import net.minecraft.server.EntityPlayer;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.Packet3Chat;
-import net.minecraft.server.WorldServer;
+import java.util.logging.Level;
+import net.minecraft.server.*;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -15,13 +15,16 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
-
 public class ModMode extends JavaPlugin {
+
     private final ModModeListener listener = new ModModeListener(this);
     public List<String> vanished;
     public List<String> fullvanished;
     public List<String> modmode;
     public boolean allowFlight;
+    public boolean usingbperms;
+    public String bPermsModGroup;
+    public String bPermsModModeGroup;
 
     public boolean isInvisible(Player player) {
         return vanished.contains(player.getName()) || fullvanished.contains(player.getName());
@@ -112,9 +115,20 @@ public class ModMode extends JavaPlugin {
         if (!toggle) {
             displayName = player.getDisplayName();
             name = displayName;
+            if (usingbperms) {
+                List<org.bukkit.World> worlds = getServer().getWorlds();
+                for (org.bukkit.World world : worlds) {
+                    ApiLayer.addGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
+                }
+            }
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
-        }
-        else {
+        } else {
+            if (usingbperms) {
+                List<org.bukkit.World> worlds = getServer().getWorlds();
+                for (org.bukkit.World world : worlds) {
+                    ApiLayer.removeGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
+                }
+            }
             player.sendMessage(ChatColor.RED + "You are now in ModMode!");
         }
 
@@ -160,54 +174,53 @@ public class ModMode extends JavaPlugin {
                 other.showPlayer(player);
             }
         }
-        
+
         //toggle flight, set via the config path "allow.flight"
         if (allowFlight) {
-        	player.setAllowFlight(toggle);
+            player.setAllowFlight(toggle);
         }
 
-/*        EntityPlayer oldplayer = ((CraftPlayer) player).getHandle();
-        MinecraftServer server = oldplayer.server;
-        NetServerHandler netServerHandler = oldplayer.netServerHandler;
-
-        // remove old entity
-        String quitMessage = server.serverConfigurationManager.disconnect(oldplayer);
-        if ((quitMessage != null) && (quitMessage.length() > 0)) {
-            server.serverConfigurationManager.sendAll(new Packet3Chat(quitMessage));
+        /*
+         * EntityPlayer oldplayer = ((CraftPlayer) player).getHandle();
+         * MinecraftServer server = oldplayer.server; NetServerHandler
+         * netServerHandler = oldplayer.netServerHandler;
+         *
+         * // remove old entity String quitMessage =
+         * server.serverConfigurationManager.disconnect(oldplayer); if
+         * ((quitMessage != null) && (quitMessage.length() > 0)) {
+         * server.serverConfigurationManager.sendAll(new
+         * Packet3Chat(quitMessage)); }
+         *
+         * // ((WorldServer) oldplayer.world).tracker.untrackPlayer(oldplayer);
+         * // oldplayer.die();
+         *
+         * // make new one with same NetServerHandler and ItemInWorldManager
+         * EntityPlayer entityplayer = new EntityPlayer(server,
+         * server.getWorldServer(0), name, oldplayer.itemInWorldManager); Player
+         * newplayer = entityplayer.getBukkitEntity();
+         *
+         * entityplayer.displayName = displayName; entityplayer.listName =
+         * displayName; entityplayer.netServerHandler = netServerHandler;
+         * entityplayer.netServerHandler.player = entityplayer; entityplayer.id
+         * = oldplayer.id;
+         * server.serverConfigurationManager.playerFileData.load(entityplayer);
+         * if (toggle) { entityplayer.locX = oldplayer.locX; entityplayer.locY =
+         * oldplayer.locY; entityplayer.locZ = oldplayer.locZ; entityplayer.yaw
+         * = oldplayer.yaw; entityplayer.pitch = oldplayer.pitch; }
+         * server.serverConfigurationManager.c(entityplayer);
+         * entityplayer.syncInventory();
+         *
+         * // untrack and track to make sure we can see everyone ((WorldServer)
+         * entityplayer.world).tracker.untrackEntity(entityplayer);
+         * ((WorldServer) entityplayer.world).tracker.track(entityplayer);
+         *
+         * // teleport to the player's location to avoid speedhack kick if
+         * (!toggle) { Location loc = new
+         * Location(entityplayer.world.getWorld(), entityplayer.locX,
+         * entityplayer.locY, entityplayer.locZ, entityplayer.yaw,
+         * entityplayer.pitch); newplayer.teleport(loc);
         }
-
-//        ((WorldServer) oldplayer.world).tracker.untrackPlayer(oldplayer);
-//        oldplayer.die();
-
-        // make new one with same NetServerHandler and ItemInWorldManager
-        EntityPlayer entityplayer = new EntityPlayer(server, server.getWorldServer(0), name, oldplayer.itemInWorldManager);
-        Player newplayer = entityplayer.getBukkitEntity();
-
-        entityplayer.displayName = displayName;
-        entityplayer.listName = displayName;
-        entityplayer.netServerHandler = netServerHandler;
-        entityplayer.netServerHandler.player = entityplayer;
-        entityplayer.id = oldplayer.id;
-        server.serverConfigurationManager.playerFileData.load(entityplayer);
-        if (toggle) {
-            entityplayer.locX = oldplayer.locX;
-            entityplayer.locY = oldplayer.locY;
-            entityplayer.locZ = oldplayer.locZ;
-            entityplayer.yaw = oldplayer.yaw;
-            entityplayer.pitch = oldplayer.pitch;
-        }
-        server.serverConfigurationManager.c(entityplayer);
-        entityplayer.syncInventory();
-
-        // untrack and track to make sure we can see everyone
-        ((WorldServer) entityplayer.world).tracker.untrackEntity(entityplayer);
-        ((WorldServer) entityplayer.world).tracker.track(entityplayer);
-
-        // teleport to the player's location to avoid speedhack kick
-        if (!toggle) {
-            Location loc = new Location(entityplayer.world.getWorld(), entityplayer.locX, entityplayer.locY, entityplayer.locZ, entityplayer.yaw, entityplayer.pitch);
-            newplayer.teleport(loc);
-        }*/
+         */
     }
 
     public void updateVanishLists(Player player) {
@@ -246,6 +259,22 @@ public class ModMode extends JavaPlugin {
         fullvanished = getConfig().getStringList("fullvanished");
         modmode = getConfig().getStringList("modmode");
         allowFlight = getConfig().getBoolean("allow.flight");
+        usingbperms = getConfig().getBoolean("bperms.enable", false);
+        bPermsModGroup = getConfig().getString("bperms.modgroup", "Moderators");
+        bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
+        
+        if (usingbperms) {
+            de.bananaco.bpermissions.imp.Permissions bPermsPlugin = null;
+            
+            bPermsPlugin = (de.bananaco.bpermissions.imp.Permissions)getServer().getPluginManager().getPlugin("bPermissions");
+            if (bPermsPlugin == null || !(bPermsPlugin instanceof de.bananaco.bpermissions.imp.Permissions)) {
+                if (!bPermsPlugin.isEnabled()) {
+                    getPluginLoader().enablePlugin(bPermsPlugin);
+                }
+                getLogger().log(Level.INFO, "bperms turned on, but plugin could not be loaded.");
+                getPluginLoader().disablePlugin(this);
+            }
+        }
     }
 
     @Override
@@ -253,7 +282,6 @@ public class ModMode extends JavaPlugin {
         getConfig().set("vanished", vanished);
         getConfig().set("fullvanished", fullvanished);
         getConfig().set("modmode", modmode);
-        getConfig().set("allow.flight", allowFlight);
         saveConfig();
     }
 
@@ -296,8 +324,7 @@ public class ModMode extends JavaPlugin {
         } else if (command.getName().equalsIgnoreCase("modmode")) {
             if (modmode.remove(player.getDisplayName())) {
                 toggleModMode(player, false, false);
-            }
-            else {
+            } else {
                 modmode.add(player.getDisplayName());
                 toggleModMode(player, true, false);
             }

@@ -7,6 +7,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
@@ -131,6 +132,13 @@ public class ModModeListener implements Listener {
             if (plugin.isModMode(victim) || plugin.isInvisible(victim)) {
                 event.setCancelled(true);
             }
+        }
+    }
+    
+    @EventHandler(ignoreCancelled = true)
+    public void onPlayerChangeWorld(PlayerChangedWorldEvent e) {
+        if (plugin.allowFlight) {
+            e.getPlayer().setAllowFlight(plugin.isModMode(e.getPlayer()));
         }
     }
 }
