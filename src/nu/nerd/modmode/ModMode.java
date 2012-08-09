@@ -275,7 +275,7 @@ public class ModMode extends JavaPlugin {
         fullvanished = getConfig().getStringList("fullvanished");
         modmode = getConfig().getStringList("modmode");
         allowFlight = getConfig().getBoolean("allow.flight", true);
-        usingbperms = getConfig().getBoolean("bperms.enable", false);
+        usingbperms = getConfig().getBoolean("bperms.enabled", false);
         bPermsModGroup = getConfig().getString("bperms.modgroup", "Moderators");
         bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
         
