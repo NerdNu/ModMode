@@ -122,7 +122,6 @@ public class ModMode extends JavaPlugin {
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
-                    getLogger().log(Level.INFO, "Removing " + name + " from " + bPermsModModeGroup + " in " + world.getName());
                     ApiLayer.removeGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
                     List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, name));
                     
@@ -136,7 +135,6 @@ public class ModMode extends JavaPlugin {
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
-                    getLogger().log(Level.INFO, "Adding " + name + " to " + bPermsModModeGroup + " in " + world.getName());
                     ApiLayer.addGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
                     
                     List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, name));
@@ -161,7 +159,7 @@ public class ModMode extends JavaPlugin {
                 server.getServerConfigurationManager().sendAll(new Packet3Chat(playerQuitEvent.getQuitMessage()));
             }
         }
-        ((WorldServer) entityplayer.world).tracker.untrackEntity(entityplayer);
+
         //save with the old name, change it, then load with the new name
         server.getServerConfigurationManager().playerFileData.save(entityplayer);
         entityplayer.name = name;
@@ -176,7 +174,7 @@ public class ModMode extends JavaPlugin {
         }
 
         //untrack and track to show new name to clients
-        
+        ((WorldServer) entityplayer.world).tracker.untrackEntity(entityplayer);
         ((WorldServer) entityplayer.world).tracker.track(entityplayer);
 
         //teleport to avoid speedhack
