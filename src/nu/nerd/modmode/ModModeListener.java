@@ -1,6 +1,7 @@
 package nu.nerd.modmode;
 
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -137,6 +138,9 @@ public class ModModeListener implements Listener {
     
     @EventHandler(ignoreCancelled = true)
     public void onPlayerChangeWorld(PlayerChangedWorldEvent e) {
+        if (e.getPlayer().getGameMode() == GameMode.CREATIVE)
+            return;
+        
         if (plugin.allowFlight) {
             e.getPlayer().setAllowFlight(plugin.isModMode(e.getPlayer()));
         }

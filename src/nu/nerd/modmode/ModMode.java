@@ -113,7 +113,7 @@ public class ModMode extends JavaPlugin {
         }
     }
 
-    public void toggleModMode(Player player, boolean toggle, boolean onJoin) {
+    public void toggleModMode(final Player player, boolean toggle, boolean onJoin) {
         String displayName = player.getName();
         String name = ChatColor.GREEN + player.getDisplayName() + ChatColor.WHITE;
         if (!toggle) {
@@ -148,8 +148,8 @@ public class ModMode extends JavaPlugin {
         }
 
         Location loc = player.getLocation();
-        EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
-        MinecraftServer server = entityplayer.server;
+        final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
+        final MinecraftServer server = entityplayer.server;
 
         //send fake quit message
         if (!onJoin) {
@@ -189,6 +189,17 @@ public class ModMode extends JavaPlugin {
                 other.showPlayer(player);
             }
         }
+        
+        final Location loc2 = loc.clone();
+        
+        getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
+            public void run() {
+                Packet20NamedEntitySpawn packet = new Packet20NamedEntitySpawn(entityplayer);
+                server.getServerConfigurationManager().sendPacketNearby(loc2.getX(), loc2.getY(), loc2.getZ(), 128, ((CraftWorld) loc2.getWorld()).getHandle().dimension, packet);
+                Packet29DestroyEntity destroy = new Packet29DestroyEntity(entityplayer.id);
+                server.getServerConfigurationManager().sendPacketNearby(loc2.getX(), loc2.getY(), loc2.getZ(), 1, ((CraftWorld) loc2.getWorld()).getHandle().dimension, destroy);
+            }
+        }, 10);
 
         //toggle flight, set via the config path "allow.flight"
         if (allowFlight) {
