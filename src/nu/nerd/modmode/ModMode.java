@@ -255,10 +255,11 @@ public class ModMode extends JavaPlugin {
     @Override
     public void onEnable() {
         getServer().getPluginManager().registerEvents(listener, this);
+        getConfig().options().copyDefaults(true);
         vanished = getConfig().getStringList("vanished");
         fullvanished = getConfig().getStringList("fullvanished");
         modmode = getConfig().getStringList("modmode");
-        allowFlight = getConfig().getBoolean("allow.flight");
+        allowFlight = getConfig().getBoolean("allow.flight", true);
         usingbperms = getConfig().getBoolean("bperms.enable", false);
         bPermsModGroup = getConfig().getString("bperms.modgroup", "Moderators");
         bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
