@@ -2,6 +2,9 @@ package nu.nerd.modmode;
 
 import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import net.minecraft.server.*;
@@ -118,7 +121,13 @@ public class ModMode extends JavaPlugin {
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
-                    ApiLayer.addGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
+                    getLogger().log(Level.INFO, "Removing " + name + " from " + bPermsModModeGroup + " in " + world.getName());
+                    ApiLayer.removeGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
+                    List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, name));
+                    
+                    if (!groups.contains(bPermsModGroup)) {
+                        ApiLayer.addGroup(world.getName(), CalculableType.USER, name, bPermsModGroup);
+                    }
                 }
             }
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
@@ -126,7 +135,14 @@ public class ModMode extends JavaPlugin {
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
-                    ApiLayer.removeGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
+                    getLogger().log(Level.INFO, "Adding " + name + " to " + bPermsModModeGroup + " in " + world.getName());
+                    ApiLayer.addGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
+                    
+                    List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, name));
+                    
+                    if (groups.contains(bPermsModGroup)) {
+                        ApiLayer.removeGroup(world.getName(), CalculableType.USER, name, bPermsModGroup);
+                    }
                 }
             }
             player.sendMessage(ChatColor.RED + "You are now in ModMode!");
