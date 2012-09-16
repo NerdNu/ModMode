@@ -8,6 +8,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
+import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -143,6 +144,19 @@ public class ModModeListener implements Listener {
         
         if (plugin.allowFlight) {
             e.getPlayer().setAllowFlight(plugin.isModMode(e.getPlayer()));
+        }
+    }
+    
+    @EventHandler(ignoreCancelled = true)
+    public void onFoodLevelChange(FoodLevelChangeEvent event) {
+        if (event.getEntity() instanceof Player) {
+            Player player = (Player)event.getEntity();
+            if( plugin.isModMode(player)){
+                if (player.getFoodLevel() != 20) {
+                    player.setFoodLevel(20);
+                }
+                event.setCancelled(true);
+            }
         }
     }
 }
