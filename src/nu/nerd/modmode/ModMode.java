@@ -7,13 +7,15 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
-import net.minecraft.server.*;
+import net.minecraft.server.v1_4_6.EntityPlayer;
+import net.minecraft.server.v1_4_6.MinecraftServer;
+import net.minecraft.server.v1_4_6.Packet3Chat;
+import net.minecraft.server.v1_4_6.WorldServer;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.craftbukkit.CraftWorld;
-import org.bukkit.craftbukkit.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_4_6.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -156,21 +158,21 @@ public class ModMode extends JavaPlugin {
             PlayerQuitEvent playerQuitEvent = new PlayerQuitEvent(player, "\u00A7e" + entityplayer.name + " left the game.");
             getServer().getPluginManager().callEvent(playerQuitEvent);
             if ((playerQuitEvent.getQuitMessage() != null) && (playerQuitEvent.getQuitMessage().length() > 0)) {
-                server.getServerConfigurationManager().sendAll(new Packet3Chat(playerQuitEvent.getQuitMessage()));
+                server.getPlayerList().sendAll(new Packet3Chat(playerQuitEvent.getQuitMessage()));
             }
         }
 
         //save with the old name, change it, then load with the new name
-        server.getServerConfigurationManager().playerFileData.save(entityplayer);
+        server.getPlayerList().playerFileData.save(entityplayer);
         entityplayer.name = name;
         entityplayer.displayName = displayName;
-        server.getServerConfigurationManager().playerFileData.load(entityplayer);
+        server.getPlayerList().playerFileData.load(entityplayer);
 
         //send fake join message
         PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(player, "\u00A7e" + entityplayer.name + " joined the game.");
         getServer().getPluginManager().callEvent(playerJoinEvent);
         if ((playerJoinEvent.getJoinMessage() != null) && (playerJoinEvent.getJoinMessage().length() > 0)) {
-            server.getServerConfigurationManager().sendAll(new Packet3Chat(playerJoinEvent.getJoinMessage()));
+            server.getPlayerList().sendAll(new Packet3Chat(playerJoinEvent.getJoinMessage()));
         }
 
         //untrack and track to show new name to clients
