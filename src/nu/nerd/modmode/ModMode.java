@@ -191,6 +191,13 @@ public class ModMode extends JavaPlugin {
                 other.showPlayer(player);
             }
         }
+
+
+        // Remove existing potion effects from the player
+        Iterator<PotionEffect> effects = player.getActivePotionEffects().iterator();
+        while (effects.hasNext()){
+            player.removePotionEffect(effects.next().getType());
+        }
         
 //        final Location loc2 = loc.clone();
 //        
