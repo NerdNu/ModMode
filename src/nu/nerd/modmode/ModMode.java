@@ -4,13 +4,16 @@ import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Level;
 import net.minecraft.server.v1_4_6.EntityPlayer;
 import net.minecraft.server.v1_4_6.MinecraftServer;
+import net.minecraft.server.v1_4_6.MobEffect;
 import net.minecraft.server.v1_4_6.Packet3Chat;
+import net.minecraft.server.v1_4_6.Packet41MobEffect;
 import net.minecraft.server.v1_4_6.WorldServer;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -21,6 +24,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
 
 public class ModMode extends JavaPlugin {
 
@@ -32,6 +36,7 @@ public class ModMode extends JavaPlugin {
     public boolean usingbperms;
     public String bPermsModGroup;
     public String bPermsModModeGroup;
+    public HashMap<String, Collection<PotionEffect>> potionMap;
 
     public boolean isInvisible(Player player) {
         return vanished.contains(player.getName()) || fullvanished.contains(player.getName());
@@ -163,6 +168,10 @@ public class ModMode extends JavaPlugin {
             }
         }
 
+        // Save current potion effects
+        Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
+        potionMap.put(entityplayer.name, activeEffects);
+
         //save with the old name, change it, then load with the new name
         server.getPlayerList().playerFileData.save(entityplayer);
         entityplayer.name = name;
@@ -194,11 +203,17 @@ public class ModMode extends JavaPlugin {
         }
 
 
-        // Remove existing potion effects from the player
-        Iterator<PotionEffect> effects = player.getActivePotionEffects().iterator();
-        while (effects.hasNext()){
-            player.removePotionEffect(effects.next().getType());
+        // Load new potion effects
+        for (PotionEffect effect : activeEffects){
+            player.removePotionEffect(effect.getType());
         }
+        Collection<PotionEffect> newEffects = potionMap.get(entityplayer.name);
+        for (PotionEffect effect : newEffects){
+            player.addPotionEffect(effect);
+            // addPotionEffect doesn't send this packet for some reason, so we'll do it manually
+            entityplayer.playerConnection.sendPacket(new Packet41MobEffect(entityplayer.id, new MobEffect(effect.getType().getId(), effect.getDuration(), effect.getAmplifier())));
+        }
+        potionMap.remove(entityplayer.name);
         
 //        final Location loc2 = loc.clone();
 //        
@@ -298,6 +313,8 @@ public class ModMode extends JavaPlugin {
         usingbperms = getConfig().getBoolean("bperms.enabled", false);
         bPermsModGroup = getConfig().getString("bperms.modgroup", "Moderators");
         bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
+        
+        potionMap = new HashMap<String, Collection<PotionEffect>>();
         
         if (usingbperms) {
             de.bananaco.bpermissions.imp.Permissions bPermsPlugin = null;
