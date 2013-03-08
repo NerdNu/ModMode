@@ -21,6 +21,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
 
 public class ModMode extends JavaPlugin {
 
@@ -32,6 +33,7 @@ public class ModMode extends JavaPlugin {
     public boolean usingbperms;
     public String bPermsModGroup;
     public String bPermsModModeGroup;
+    public HashMap<String, Collection<PotionEffect>> potionMap;
 
     public boolean isInvisible(Player player) {
         return vanished.contains(player.getName()) || fullvanished.contains(player.getName());
@@ -163,6 +165,10 @@ public class ModMode extends JavaPlugin {
             }
         }
 
+        // Save current potion effects
+        Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
+        potionMap.put(entityplayer.name, activeEffects);
+
         //save with the old name, change it, then load with the new name
         server.getPlayerList().playerFileData.save(entityplayer);
         entityplayer.name = name;
@@ -192,6 +198,19 @@ public class ModMode extends JavaPlugin {
                 other.showPlayer(player);
             }
         }
+
+
+        // Load new potion effects
+        for (PotionEffect effect : activeEffects){
+            player.removePotionEffect(effect.getType());
+        }
+        Collection<PotionEffect> newEffects = potionMap.get(entityplayer.name);
+        for (PotionEffect effect : newEffects){
+            player.addPotionEffect(effect);
+            // addPotionEffect doesn't send this packet for some reason, so we'll do it manually
+            entityplayer.playerConnection.sendPacket(new Packet41MobEffect(entityplayer.id, new MobEffect(effect.getType().getId(), effect.getDuration(), effect.getAmplifier())));
+        }
+        potionMap.remove(entityplayer.name);
         
 //        final Location loc2 = loc.clone();
 //        
@@ -299,6 +318,8 @@ public class ModMode extends JavaPlugin {
         usingbperms = getConfig().getBoolean("bperms.enabled", false);
         bPermsModGroup = getConfig().getString("bperms.modgroup", "Moderators");
         bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
+        
+        potionMap = new HashMap<String, Collection<PotionEffect>>();
         
         if (usingbperms) {
             de.bananaco.bpermissions.imp.Permissions bPermsPlugin = null;
