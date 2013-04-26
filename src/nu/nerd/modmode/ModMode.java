@@ -209,10 +209,12 @@ public class ModMode extends JavaPlugin {
             player.removePotionEffect(effect.getType());
         }
         Collection<PotionEffect> newEffects = potionMap.get(entityplayer.name);
-        for (PotionEffect effect : newEffects){
-            player.addPotionEffect(effect);
-            // addPotionEffect doesn't send this packet for some reason, so we'll do it manually
-            entityplayer.playerConnection.sendPacket(new Packet41MobEffect(entityplayer.id, new MobEffect(effect.getType().getId(), effect.getDuration(), effect.getAmplifier())));
+        if (newEffects != null) {
+            for (PotionEffect effect : newEffects){
+                player.addPotionEffect(effect);
+                // addPotionEffect doesn't send this packet for some reason, so we'll do it manually
+                entityplayer.playerConnection.sendPacket(new Packet41MobEffect(entityplayer.id, new MobEffect(effect.getType().getId(), effect.getDuration(), effect.getAmplifier())));
+            }
         }
         potionMap.remove(entityplayer.name);
         
