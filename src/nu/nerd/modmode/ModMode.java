@@ -7,20 +7,20 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Level;
-import net.minecraft.server.v1_5_R2.EntityPlayer;
-import net.minecraft.server.v1_5_R2.MinecraftServer;
-import net.minecraft.server.v1_5_R2.MobEffect;
-import net.minecraft.server.v1_5_R2.Packet;
-import net.minecraft.server.v1_5_R2.Packet3Chat;
-import net.minecraft.server.v1_5_R2.Packet41MobEffect;
-import net.minecraft.server.v1_5_R2.WorldServer;
+import net.minecraft.server.v1_5_R3.EntityPlayer;
+import net.minecraft.server.v1_5_R3.MinecraftServer;
+import net.minecraft.server.v1_5_R3.MobEffect;
+import net.minecraft.server.v1_5_R3.Packet;
+import net.minecraft.server.v1_5_R3.Packet3Chat;
+import net.minecraft.server.v1_5_R3.Packet41MobEffect;
+import net.minecraft.server.v1_5_R3.WorldServer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.craftbukkit.v1_5_R2.CraftServer;
-import org.bukkit.craftbukkit.v1_5_R2.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_5_R3.CraftServer;
+import org.bukkit.craftbukkit.v1_5_R3.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -133,7 +133,7 @@ public class ModMode extends JavaPlugin {
                 for (org.bukkit.World world : worlds) {
                     ApiLayer.removeGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
                     List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, name));
-                    
+
                     if (!groups.contains(bPermsModGroup)) {
                         ApiLayer.addGroup(world.getName(), CalculableType.USER, name, bPermsModGroup);
                     }
@@ -145,9 +145,9 @@ public class ModMode extends JavaPlugin {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
                     ApiLayer.addGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
-                    
+
                     List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, name));
-                    
+
                     if (groups.contains(bPermsModGroup)) {
                         ApiLayer.removeGroup(world.getName(), CalculableType.USER, name, bPermsModGroup);
                     }
@@ -205,19 +205,19 @@ public class ModMode extends JavaPlugin {
 
 
         // Load new potion effects
-        for (PotionEffect effect : activeEffects){
+        for (PotionEffect effect : activeEffects) {
             player.removePotionEffect(effect.getType());
         }
         Collection<PotionEffect> newEffects = potionMap.get(entityplayer.name);
         if (newEffects != null) {
-            for (PotionEffect effect : newEffects){
+            for (PotionEffect effect : newEffects) {
                 player.addPotionEffect(effect);
                 // addPotionEffect doesn't send this packet for some reason, so we'll do it manually
                 entityplayer.playerConnection.sendPacket(new Packet41MobEffect(entityplayer.id, new MobEffect(effect.getType().getId(), effect.getDuration(), effect.getAmplifier())));
             }
         }
         potionMap.remove(entityplayer.name);
-        
+
 //        final Location loc2 = loc.clone();
 //        
 //        getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
@@ -273,12 +273,12 @@ public class ModMode extends JavaPlugin {
          * Location(entityplayer.world.getWorld(), entityplayer.locX,
          * entityplayer.locY, entityplayer.locZ, entityplayer.yaw,
          * entityplayer.pitch); newplayer.teleport(loc);
-        }
+         }
          */
     }
-    
-    private static void sendPacketToAll(Packet p){
-        MinecraftServer server = ((CraftServer)Bukkit.getServer()).getServer();
+
+    private static void sendPacketToAll(Packet p) {
+        MinecraftServer server = ((CraftServer) Bukkit.getServer()).getServer();
         for (int i = 0; i < server.getPlayerList().players.size(); ++i) {
             EntityPlayer ep = (EntityPlayer) server.getPlayerList().players.get(i);
             ep.playerConnection.sendPacket(p);
@@ -324,13 +324,13 @@ public class ModMode extends JavaPlugin {
         usingbperms = getConfig().getBoolean("bperms.enabled", false);
         bPermsModGroup = getConfig().getString("bperms.modgroup", "Moderators");
         bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
-        
+
         potionMap = new HashMap<String, Collection<PotionEffect>>();
-        
+
         if (usingbperms) {
             de.bananaco.bpermissions.imp.Permissions bPermsPlugin = null;
-            
-            bPermsPlugin = (de.bananaco.bpermissions.imp.Permissions)getServer().getPluginManager().getPlugin("bPermissions");
+
+            bPermsPlugin = (de.bananaco.bpermissions.imp.Permissions) getServer().getPluginManager().getPlugin("bPermissions");
             if (bPermsPlugin == null || !(bPermsPlugin instanceof de.bananaco.bpermissions.imp.Permissions)) {
                 if (!bPermsPlugin.isEnabled()) {
                     getPluginLoader().enablePlugin(bPermsPlugin);
