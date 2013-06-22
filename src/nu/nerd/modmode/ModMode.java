@@ -16,7 +16,9 @@ import net.minecraft.server.v1_5_R3.Packet41MobEffect;
 import net.minecraft.server.v1_5_R3.WorldServer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.craftbukkit.v1_5_R3.CraftServer;
@@ -195,6 +197,13 @@ public class ModMode extends JavaPlugin {
             loc = new Location(entityplayer.world.getWorld(), entityplayer.locX, entityplayer.locY, entityplayer.locZ, entityplayer.yaw, entityplayer.pitch);
         }
         player.teleport(loc);
+        // Hopefully stop some minor falls
+        player.setFallDistance(0F);
+        // Chunk error ( resend to all clients )
+        World w = player.getWorld();
+        Chunk c = w.getChunkAt(player.getLocation());
+        w.refreshChunk(c.getX(), c.getZ());
+
 
         //unvanish the player when they leave modmode
         if (!toggle) {
