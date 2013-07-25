@@ -161,8 +161,9 @@ public class ModMode extends JavaPlugin {
         Location loc = player.getLocation();
         final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
         final MinecraftServer server = entityplayer.server;
-
         //send fake quit message
+	//Removed - needs to be fixed upstream
+	/*
         if (!onJoin) {
             PlayerQuitEvent playerQuitEvent = new PlayerQuitEvent(player, "\u00A7e" + entityplayer.listName + " left the game.");
             getServer().getPluginManager().callEvent(playerQuitEvent);
@@ -170,6 +171,7 @@ public class ModMode extends JavaPlugin {
                 sendPacketToAll(new Packet3Chat(playerQuitEvent.getQuitMessage()));
             }
         }
+	*/
 
         // Save current potion effects
         Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
@@ -182,12 +184,14 @@ public class ModMode extends JavaPlugin {
         server.getPlayerList().playerFileData.load(entityplayer);
 
         //send fake join message
+	//Removed - needs to be fixed upstream
+	/*
         PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(player, "\u00A7e" + entityplayer.listName + " joined the game.");
         getServer().getPluginManager().callEvent(playerJoinEvent);
         if ((playerJoinEvent.getJoinMessage() != null) && (playerJoinEvent.getJoinMessage().length() > 0)) {
             sendPacketToAll(new Packet3Chat(playerJoinEvent.getJoinMessage()));
         }
-
+*/
         //untrack and track to show new name to clients
         ((WorldServer) entityplayer.world).tracker.untrackEntity(entityplayer);
         ((WorldServer) entityplayer.world).tracker.track(entityplayer);
@@ -286,7 +290,7 @@ public class ModMode extends JavaPlugin {
          */
     }
     
-    private static void sendPacketToAll(Packet p){
+    private static void sendPacketToAll(Packet3Chat p){
         MinecraftServer server = ((CraftServer)Bukkit.getServer()).getServer();
         for (int i = 0; i < server.getPlayerList().players.size(); ++i) {
             EntityPlayer ep = (EntityPlayer) server.getPlayerList().players.get(i);
