@@ -164,7 +164,7 @@ public class ModMode extends JavaPlugin {
 
         //send fake quit message
         if (!onJoin) {
-            PlayerQuitEvent playerQuitEvent = new PlayerQuitEvent(player, "\u00A7e" + entityplayer.name + " left the game.");
+            PlayerQuitEvent playerQuitEvent = new PlayerQuitEvent(player, "\u00A7e" + entityplayer.listName + " left the game.");
             getServer().getPluginManager().callEvent(playerQuitEvent);
             if ((playerQuitEvent.getQuitMessage() != null) && (playerQuitEvent.getQuitMessage().length() > 0)) {
                 sendPacketToAll(new Packet3Chat(playerQuitEvent.getQuitMessage()));
@@ -173,16 +173,16 @@ public class ModMode extends JavaPlugin {
 
         // Save current potion effects
         Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
-        potionMap.put(entityplayer.name, activeEffects);
+        potionMap.put(entityplayer.listName, activeEffects);
 
         //save with the old name, change it, then load with the new name
         server.getPlayerList().playerFileData.save(entityplayer);
-        entityplayer.name = name;
+        entityplayer.listName = name;
         entityplayer.displayName = displayName;
         server.getPlayerList().playerFileData.load(entityplayer);
 
         //send fake join message
-        PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(player, "\u00A7e" + entityplayer.name + " joined the game.");
+        PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(player, "\u00A7e" + entityplayer.listName + " joined the game.");
         getServer().getPluginManager().callEvent(playerJoinEvent);
         if ((playerJoinEvent.getJoinMessage() != null) && (playerJoinEvent.getJoinMessage().length() > 0)) {
             sendPacketToAll(new Packet3Chat(playerJoinEvent.getJoinMessage()));
@@ -217,7 +217,7 @@ public class ModMode extends JavaPlugin {
         for (PotionEffect effect : activeEffects){
             player.removePotionEffect(effect.getType());
         }
-        Collection<PotionEffect> newEffects = potionMap.get(entityplayer.name);
+        Collection<PotionEffect> newEffects = potionMap.get(entityplayer.listName);
         if (newEffects != null) {
             for (PotionEffect effect : newEffects){
                 player.addPotionEffect(effect);
@@ -225,7 +225,7 @@ public class ModMode extends JavaPlugin {
                 entityplayer.playerConnection.sendPacket(new Packet41MobEffect(entityplayer.id, new MobEffect(effect.getType().getId(), effect.getDuration(), effect.getAmplifier())));
             }
         }
-        potionMap.remove(entityplayer.name);
+        potionMap.remove(entityplayer.listName);
         
 //        final Location loc2 = loc.clone();
 //        
