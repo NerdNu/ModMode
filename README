@@ -3,11 +3,16 @@
 
 #### Configuration Example
     vanished: []
-    fullvanished: []
     modmode: []
     allow:
        flight: true
 
-`vanished`, `fullvanished` and `modmode` are used internally and should not be manually edited.
+`vanished`, and `modmode` are used internally and should not be manually edited.
 
 The config option `allow.flight` will allow ModMode players to fly. If not configured it will default to false.
+
+This now requires LogBlock to build, we could not find a maven repo with LogBlock in it, so you will need to grab the source code from [here](https://github.com/LogBlock/LogBlock/) and then run
+
+```
+mvn clean install
+```
