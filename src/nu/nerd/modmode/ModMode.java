@@ -141,14 +141,14 @@ public class ModMode extends JavaPlugin {
         NBTTagCompound nbttagcompound = playerFileData.getPlayerData(name);
         if (nbttagcompound != null) {
             entityhuman.f(nbttagcompound);
+        } else {
+            getLogger().info("loadPlayerData(): no player data for: " + name);
         }
-        
         return nbttagcompound;
     }
 
     public void toggleModMode(final Player player, boolean enabled, boolean onJoin) {
         String oldName, newName;
-        player.setMetadata("modmode", new FixedMetadataValue(this, enabled));
         if (!enabled) {
             oldName = getCleanModModeName(player);
             newName = player.getName();
@@ -244,6 +244,7 @@ public class ModMode extends JavaPlugin {
         if (allowFlight) {
             player.setAllowFlight(enabled);
         }
+        saveConfig();
     }
 
     public void updateVanishLists(Player player) {

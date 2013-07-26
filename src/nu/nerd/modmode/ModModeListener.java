@@ -18,6 +18,7 @@ import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.metadata.MetadataValue;
@@ -72,38 +73,37 @@ public class ModModeListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        
-        boolean modmode = false;
-        List<MetadataValue> values = player.getMetadata("modmode"); 
-        
-        for(MetadataValue value : values){
-            if(value.getOwningPlugin().getDescription().getName().equals(plugin.getDescription().getName())){
-                modmode = value.asBoolean();
-            }
-        }
-
-        if (plugin.isModMode(player) && !modmode) {
+        if (plugin.isModMode(player)) {
             event.setJoinMessage(null);
             Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new ModModeRunnable(player));
         }
-
+        
         plugin.updateVanishLists(player);
     }
     
     @EventHandler
+    public void onPlayerKick(PlayerKickEvent event) {
+        onDisconnect(event.getPlayer());
+    }
+
+    @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        if (plugin.isModMode(event.getPlayer())) {
-            final EntityPlayer entityplayer = ((CraftPlayer) event.getPlayer()).getHandle();
+        onDisconnect(event.getPlayer());
+    }
+
+    protected void onDisconnect(Player player) {
+        if (plugin.isModMode(player)) {
+            final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
             
             // Do the "lite" version of toggleModMode(player,false,false).
             // Save the current inventory state of the ModMode identity.
-            plugin.savePlayerData(entityplayer, plugin.getCleanModModeName(event.getPlayer()));
+            plugin.savePlayerData(entityplayer, plugin.getCleanModModeName(player));
             
             // Reload the normal player inventory so that when the server saves, it saves that.
-            plugin.loadPlayerData(entityplayer, event.getPlayer().getName());
+            plugin.loadPlayerData(entityplayer, player.getName());
         }
     }
-
+    
     @EventHandler(ignoreCancelled = true)
     public void onPlayerPickupItem(PlayerPickupItemEvent event) {
         if (plugin.isInvisible(event.getPlayer()))
