@@ -20,14 +20,13 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
 import org.kitteh.tag.PlayerReceiveNameTagEvent;
 import org.kitteh.vanish.event.VanishStatusChangeEvent;
 
 
 public class ModModeListener implements Listener {
-    private final ModMode plugin;
+    final ModMode plugin;
 
     public class ModModeRunnable implements Runnable {
         private final Player player;

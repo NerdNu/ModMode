@@ -3,14 +3,11 @@ package nu.nerd.modmode;
 import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
 import de.diddiz.LogBlock.Consumer;
-import de.diddiz.LogBlock.LogBlock;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.logging.Level;
 import net.minecraft.server.v1_6_R2.*;
@@ -61,7 +58,6 @@ public class ModMode extends JavaPlugin {
     private String playerDir;
     protected VanishPlugin vanish;
     protected TagAPI tagapi;
-    private Consumer lbconsumer = null;
     
 
     public boolean isInvisible(Player player) {
