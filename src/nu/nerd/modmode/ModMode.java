@@ -116,6 +116,7 @@ public class ModMode extends JavaPlugin {
         
     public void savePlayerData(EntityPlayer entityhuman, String name) {
         try {
+            getLogger().info("savePlayerData(): " + name);
             NBTTagCompound nbttagcompound = new NBTTagCompound();
             entityhuman.e(nbttagcompound);
             
@@ -134,6 +135,7 @@ public class ModMode extends JavaPlugin {
     }
     
     public NBTTagCompound loadPlayerData(EntityPlayer entityhuman, String name) {
+        getLogger().info("loadPlayerData(): " + name);
         WorldServer worldServer = entityhuman.server.getWorldServer(0);
         WorldNBTStorage playerFileData = (WorldNBTStorage) worldServer.getDataManager().getPlayerFileData();
         NBTTagCompound nbttagcompound = playerFileData.getPlayerData(name);
@@ -145,10 +147,12 @@ public class ModMode extends JavaPlugin {
     }
 
     public void toggleModMode(final Player player, boolean enabled, boolean onJoin) {
-        String old_name = player.getName();
-        String new_name = getCleanModModeName(player);
+        String oldName, newName;
         player.setMetadata("modmode", new FixedMetadataValue(this, enabled));
         if (!enabled) {
+            oldName = getCleanModModeName(player);
+            newName = player.getName();
+
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
@@ -156,7 +160,7 @@ public class ModMode extends JavaPlugin {
                     
                     // Players leaving ModMode are assumed to be mods if not otherwise specified.
                     String group = groupMap.getString(player.getName(), bPermsModGroups.get(0));
-                    if (! ApiLayer.hasGroupRecursive(world.getName(), CalculableType.USER, player.getName(), group)) {
+                    if (! ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
                         ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
                     }
                 }
@@ -164,19 +168,19 @@ public class ModMode extends JavaPlugin {
             modmode.remove(player.getName());
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
         } else {
-            old_name = new_name;
-            new_name = player.getName();
+            oldName = player.getName();
+            newName = getCleanModModeName(player);
+            
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
                     ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
                     
                     for (String group : bPermsModGroups) {
-                        if (! ApiLayer.hasGroupRecursive(world.getName(), CalculableType.USER, player.getName(), group)) {
+                        if (ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
                             groupMap.set(player.getName(), group);
                             ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
                         }
-                        break;
                     }
                 }
             }
@@ -195,8 +199,8 @@ public class ModMode extends JavaPlugin {
         potionMap.put(entityplayer.listName, activeEffects);
 
         //save with the old name, change it, then load with the new name
-        savePlayerData(entityplayer, old_name);
-        loadPlayerData(entityplayer, new_name);
+        savePlayerData(entityplayer, oldName);
+        loadPlayerData(entityplayer, newName);
 
         //teleport to avoid speedhack
         if (!enabled || onJoin) {

@@ -87,18 +87,19 @@ public class ModModeListener implements Listener {
             Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new ModModeRunnable(player));
         }
 
-        if (plugin.vanished.contains(player.getName()))
-            plugin.enableVanish(player);
-
         plugin.updateVanishLists(player);
     }
     
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        
-        // When the player quits, reload their normal player data so that they don't save over it.
         if (plugin.isModMode(event.getPlayer())) {
             final EntityPlayer entityplayer = ((CraftPlayer) event.getPlayer()).getHandle();
+            
+            // Do the "lite" version of toggleModMode(player,false,false).
+            // Save the current inventory state of the ModMode identity.
+            plugin.savePlayerData(entityplayer, plugin.getCleanModModeName(event.getPlayer()));
+            
+            // Reload the normal player inventory so that when the server saves, it saves that.
             plugin.loadPlayerData(entityplayer, event.getPlayer().getName());
         }
     }
