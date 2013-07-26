@@ -309,7 +309,9 @@ public class ModMode extends JavaPlugin {
         }
 
         Player player = (Player) sender;
-        if (command.getName().equalsIgnoreCase("vanishlist")) {
+        if (command.getName().equalsIgnoreCase("unvanish")) {
+            disableVanish(player);
+        } else if (command.getName().equalsIgnoreCase("vanishlist")) {
             showVanishList(player);
         } else if (command.getName().equalsIgnoreCase("modmode")) {
             if (modmode.remove(player.getDisplayName())) {

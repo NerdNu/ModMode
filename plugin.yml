@@ -10,6 +10,8 @@ softdepend: [bPermissions, TagAPI, LogBlock]
 harddepend: [VanishNoPacket]
 
 commands:
+  unvanish:
+    description: Unvanish.
   vanishlist:
     description: Show list of invisible people
     permission: modmode.vanishlist
