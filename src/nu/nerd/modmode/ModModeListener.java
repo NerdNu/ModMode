@@ -150,6 +150,8 @@ public class ModModeListener implements Listener {
         if (event.getEntity() instanceof Player) {
             Player victim = (Player) event.getEntity();
             if (plugin.isModMode(victim) || plugin.isInvisible(victim)) {
+                // Extinguish view-obscuring fires.
+                victim.setFireTicks(0);
                 event.setCancelled(true);
             }
         }
