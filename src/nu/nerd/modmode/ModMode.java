@@ -6,9 +6,11 @@ import de.diddiz.LogBlock.Consumer;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.logging.Level;
 import net.minecraft.server.v1_6_R2.*;
 
@@ -32,7 +34,12 @@ import org.kitteh.vanish.VanishPlugin;
 public class ModMode extends JavaPlugin {
 
     private final ModModeListener listener = new ModModeListener(this);
-    public List<String> vanished;
+    
+    /**
+     * This is the set of moderators who should be re-vanished when they enter 
+     * ModMode.  It is NOT the set of currently vanished players.
+     */
+    public TreeSet<String> vanished;
     public List<String> modmode;
     public boolean allowFlight;
     public boolean usingbperms;
@@ -82,27 +89,24 @@ public class ModMode extends JavaPlugin {
         }
     }
 
-    public void showVanishList(Player player) {
+    public void showVanishList(CommandSender sender) {
         String result = "";
         boolean first = true;
-        for (String hidden : vanished) {
-            if (getServer().getPlayerExact(hidden) == null) {
-                continue;
+        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
+            if (vanish.getManager().isVanished(player)) {
+                if (first) {
+                    first = false;
+                } else  {
+                    result += ", ";
+                }
+                result += player.getName();
             }
-
-            if (first) {
-                result += hidden + ChatColor.RED;
-                first = false;
-                continue;
-            }
-
-            result += ", " + hidden + ChatColor.RED;
         }
 
         if (result.length() == 0) {
-            player.sendMessage(ChatColor.RED + "All players are visible!");
+            sender.sendMessage(ChatColor.RED + "All players are visible!");
         } else {
-            player.sendMessage(ChatColor.RED + "Vanished players: " + result);
+            sender.sendMessage(ChatColor.RED + "Vanished players: " + result);
         }
     }
     
@@ -157,6 +161,7 @@ public class ModMode extends JavaPlugin {
                     }
                 }
             }
+            modmode.remove(player.getName());
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
         } else {
             old_name = new_name;
@@ -174,6 +179,9 @@ public class ModMode extends JavaPlugin {
                         break;
                     }
                 }
+            }
+            if (! modmode.contains(player.getName())) {
+                modmode.add(player.getName());         
             }
             player.sendMessage(ChatColor.RED + "You are now in ModMode!");
         }
@@ -203,8 +211,12 @@ public class ModMode extends JavaPlugin {
         w.refreshChunk(c.getX(), c.getZ());
 
 
-        //unvanish the player when they leave modmode
-        if (!enabled) {
+        // Visibility changes need to occur after the modmode list is updated. 
+        if (enabled) {
+            if (vanished.contains(player.getName())) {
+                enableVanish(player);
+            }
+        } else {
             disableVanish(player);
         }
 
@@ -254,7 +266,7 @@ public class ModMode extends JavaPlugin {
         }
         
         getServer().getPluginManager().registerEvents(listener, this);
-        vanished = getConfig().getStringList("vanished");
+        vanished = new TreeSet<String>(getConfig().getStringList("vanished"));
         modmode = getConfig().getStringList("modmode");
         allowFlight = getConfig().getBoolean("allow.flight", true);
         usingbperms = getConfig().getBoolean("bperms.enabled", false);
@@ -292,7 +304,7 @@ public class ModMode extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        getConfig().set("vanished", vanished);
+        getConfig().set("vanished", new ArrayList<String>(vanished));
         getConfig().set("modmode", modmode);
         getConfig().set("allow.flight", allowFlight);
         getConfig().set("bperms.enabled", usingbperms);
@@ -304,6 +316,11 @@ public class ModMode extends JavaPlugin {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String name, String[] args) {
+        if (command.getName().equalsIgnoreCase("vanishlist")) {
+            showVanishList(sender);
+            return true;
+        } 
+        
         if (!(sender instanceof Player)) {
             return false;
         }
@@ -311,8 +328,6 @@ public class ModMode extends JavaPlugin {
         Player player = (Player) sender;
         if (command.getName().equalsIgnoreCase("unvanish")) {
             disableVanish(player);
-        } else if (command.getName().equalsIgnoreCase("vanishlist")) {
-            showVanishList(player);
         } else if (command.getName().equalsIgnoreCase("modmode")) {
             if (modmode.remove(player.getDisplayName())) {
                 toggleModMode(player, false, false);

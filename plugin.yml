@@ -12,6 +12,7 @@ harddepend: [VanishNoPacket]
 commands:
   unvanish:
     description: Unvanish.
+    permission: modmode.unvanish
   vanishlist:
     description: Show list of invisible people
     permission: modmode.vanishlist

@@ -64,8 +64,7 @@ public class ModModeListener implements Listener {
     public void onVanishChange(VanishStatusChangeEvent event) {
         if (event.isVanishing()) {
             plugin.vanished.add(event.getPlayer().getName());
-        }
-        else {
+        } else if (plugin.isModMode(event.getPlayer())) {
             plugin.vanished.remove(event.getPlayer().getName());
         }
     }
@@ -83,7 +82,7 @@ public class ModModeListener implements Listener {
             }
         }
 
-        if (plugin.modmode.contains(player.getDisplayName()) && !modmode) {
+        if (plugin.isModMode(player) && !modmode) {
             event.setJoinMessage(null);
             Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new ModModeRunnable(player));
         }
