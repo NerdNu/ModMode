@@ -2,22 +2,17 @@ name: ModMode
 version: ${project.version}
 description: ${project.description}
 
-author: Travis Watkins
+authors: [Travis Watkins, Deaygo]
 website: ${project.url}
 
 main: nu.nerd.modmode.ModMode
-softdepend: [bPermissions]
+softdepend: [bPermissions, TagAPI, LogBlock]
+harddepend: [VanishNoPacket]
 
 commands:
-  vanish:
-    description: Go invisible
-    permission: modmode.vanish
-  fullvanish:
-    description: Go fully invisible
-    permission: modmode.fullvanish
-  unvanish:
-    description: Reappear
-    permission: modmode.unvanish
+  vanishlist:
+    description: Show list of invisible people
+    permission: modmode.vanishlist
   modmode:
     description: Toggle ModMode
     permission: modmode.toggle
@@ -26,16 +21,7 @@ permissions:
   modmode:
     description: Allow the player all Vanish-related permissions
     children:
-      modmode.vanish:
-        description: Allow the player to vanish
-      modmode.fullvanish:
-        description: Allow the player to vanish from Moderators
-      modmode.unvanish:
-        description: Allow the player to reappear
-      modmode.showvanished:
-        description: Allow the player to see all other vanished players
+      modmode.vanishlist:
+        description: Allow the player to see the vanish list
   modmode.toggle:
     description: Allow the player to enter ModMode
-  modmode.showmods:
-    description: Allow the player to see other vanished Moderators
-

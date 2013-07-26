@@ -1,9 +1,15 @@
 package nu.nerd.modmode;
 
+import de.diddiz.LogBlock.events.BlockChangePreLogEvent;
+import java.util.List;
+import net.minecraft.server.v1_6_R2.EntityPlayer;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
+import org.bukkit.craftbukkit.v1_6_R2.entity.CraftPlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -14,6 +20,10 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.metadata.MetadataValue;
+import org.kitteh.tag.PlayerReceiveNameTagEvent;
+import org.kitteh.vanish.event.VanishStatusChangeEvent;
 
 
 public class ModModeListener implements Listener {
@@ -35,52 +45,63 @@ public class ModModeListener implements Listener {
     ModModeListener(ModMode instance) {
         plugin = instance;
     }
+    
+    @EventHandler
+    public void onLogBlockPreLogEvent(BlockChangePreLogEvent event) {
+        Player p = plugin.getServer().getPlayerExact(event.getOwner());
+        if (p != null && plugin.isModMode(p)) {
+            event.setOwner(plugin.getCleanModModeName(p));
+        }
+    }
+    
+    @EventHandler(priority= EventPriority.LOWEST)
+    public void onNameTag(PlayerReceiveNameTagEvent event) {
+        if (plugin.isModMode(event.getNamedPlayer())) {
+            event.setTag(ChatColor.GREEN + event.getNamedPlayer().getName() + ChatColor.WHITE);
+        }
+    }
+    
+    @EventHandler(priority= EventPriority.LOWEST)
+    public void onVanishChange(VanishStatusChangeEvent event) {
+        if (event.isVanishing()) {
+            plugin.vanished.add(event.getPlayer().getName());
+        }
+        else {
+            plugin.vanished.remove(event.getPlayer().getName());
+        }
+    }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        
+        boolean modmode = false;
+        List<MetadataValue> values = player.getMetadata("modmode"); 
+        
+        for(MetadataValue value : values){
+            if(value.getOwningPlugin().getDescription().getName().equals(plugin.getDescription().getName())){
+                modmode = value.asBoolean();
+            }
+        }
 
-        if (plugin.modmode.contains(player.getDisplayName()) && !player.getName().startsWith("\u00A7")) {
+        if (plugin.modmode.contains(player.getDisplayName()) && !modmode) {
             event.setJoinMessage(null);
             Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new ModModeRunnable(player));
         }
 
         if (plugin.vanished.contains(player.getName()))
             plugin.enableVanish(player);
-        if (plugin.fullvanished.contains(player.getName()))
-            plugin.enableFullVanish(player);
 
         plugin.updateVanishLists(player);
-
-        // send our own join message only to people who can see the player
-        if (plugin.isInvisible(player) && event.getJoinMessage() != null) {
-            String message = event.getJoinMessage();
-            event.setJoinMessage(null);
-            for (Player other : Bukkit.getOnlinePlayers()) {
-                if (other.canSee(player)) {
-                    player.sendMessage(message);
-                }
-            }
-        }
     }
-
+    
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        // send our own quit message only to people who can see the player
-        Player player = event.getPlayer();
-        if (plugin.isInvisible(player) && event.getQuitMessage() != null) {
-            String message = event.getQuitMessage();
-            event.setQuitMessage(null);
-            for (Player other : Bukkit.getOnlinePlayers()) {
-                if (other.canSee(player)) {
-                    player.sendMessage(message);
-                }
-            }
-        }
-
-        //make sure we're visible to everyone when leaving (hack, CB update fixes it)
-        for (Player other : Bukkit.getOnlinePlayers()) {
-            other.showPlayer(player);
+        
+        // When the player quits, reload their normal player data so that they don't save over it.
+        if (plugin.isModMode(event.getPlayer())) {
+            final EntityPlayer entityplayer = ((CraftPlayer) event.getPlayer()).getHandle();
+            plugin.loadPlayerData(entityplayer, event.getPlayer().getName());
         }
     }
 
@@ -90,15 +111,13 @@ public class ModModeListener implements Listener {
             event.setCancelled(true);
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler
     public void onPlayerDropItem(PlayerDropItemEvent event) {
-        if (plugin.isInvisible(event.getPlayer()))
-            event.setCancelled(true);
-        if (plugin.isModMode(event.getPlayer()))
+        if (plugin.isInvisible(event.getPlayer()) || plugin.isModMode(event.getPlayer()))
             event.setCancelled(true);
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler
     public void onEntityTarget(EntityTargetEvent event) {
         if (!(event.getTarget() instanceof Player))
             return;
@@ -108,7 +127,7 @@ public class ModModeListener implements Listener {
             event.setCancelled(true);
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
         // block PVP with a message
         if (event instanceof EntityDamageByEntityEvent) {

@@ -2,47 +2,52 @@ package nu.nerd.modmode;
 
 import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
+import de.diddiz.LogBlock.Consumer;
+import de.diddiz.LogBlock.LogBlock;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Level;
-import net.minecraft.server.v1_6_R2.EntityPlayer;
-import net.minecraft.server.v1_6_R2.MinecraftServer;
-import net.minecraft.server.v1_6_R2.MobEffect;
-import net.minecraft.server.v1_6_R2.Packet;
-import net.minecraft.server.v1_6_R2.Packet3Chat;
-import net.minecraft.server.v1_6_R2.Packet41MobEffect;
-import net.minecraft.server.v1_6_R2.WorldServer;
-import org.bukkit.Bukkit;
+import net.minecraft.server.v1_6_R2.*;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.craftbukkit.v1_6_R2.CraftServer;
 import org.bukkit.craftbukkit.v1_6_R2.entity.CraftPlayer;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
+import org.kitteh.tag.TagAPI;
+import org.kitteh.vanish.VanishPlugin;
 
 public class ModMode extends JavaPlugin {
 
     private final ModModeListener listener = new ModModeListener(this);
     public List<String> vanished;
-    public List<String> fullvanished;
     public List<String> modmode;
     public boolean allowFlight;
     public boolean usingbperms;
-    public String bPermsModGroup;
+    public List<String> bPermsModGroups;
     public String bPermsModModeGroup;
+    public HashMap<String, String> groupMap;
     public HashMap<String, Collection<PotionEffect>> potionMap;
+    private String worldname;
+    private String playerDir;
+    protected VanishPlugin vanish;
+    protected TagAPI tagapi;
+    private Consumer lbconsumer = null;
+    
 
     public boolean isInvisible(Player player) {
-        return vanished.contains(player.getName()) || fullvanished.contains(player.getName());
+        return vanish.getManager().isVanished(player);
     }
 
     public boolean isModMode(Player player) {
@@ -50,37 +55,14 @@ public class ModMode extends JavaPlugin {
     }
 
     public void enableVanish(Player player) {
-        for (Player other : getServer().getOnlinePlayers()) {
-            if (Permissions.hasPermission(other, Permissions.SHOWVANISHED)) {
-                continue;
-            }
-            if (Permissions.hasPermission(other, Permissions.SHOWMODS)) {
-                continue;
-            }
-            other.hidePlayer(player);
+        if (!vanish.getManager().isVanished(player)) {
+            vanish.getManager().toggleVanish(player);
         }
-
-        player.sendMessage(ChatColor.RED + "Poof!");
-    }
-
-    public void enableFullVanish(Player player) {
-        for (Player other : getServer().getOnlinePlayers()) {
-            if (Permissions.hasPermission(other, Permissions.SHOWVANISHED)) {
-                continue;
-            }
-            other.hidePlayer(player);
-        }
-
-        player.sendMessage(ChatColor.RED + "You are fully vanished!");
     }
 
     public void disableVanish(Player player) {
-        if (vanished.remove(player.getName()) || fullvanished.remove(player.getName())) {
-            for (Player other : getServer().getOnlinePlayers()) {
-                other.showPlayer(player);
-            }
-
-            player.sendMessage(ChatColor.RED + "You have reappeared!");
+        if (vanish.getManager().isVanished(player)) {
+            vanish.getManager().toggleVanish(player);
         } else {
             player.sendMessage(ChatColor.RED + "You are not vanished!");
         }
@@ -103,55 +85,93 @@ public class ModMode extends JavaPlugin {
             result += ", " + hidden + ChatColor.RED;
         }
 
-        for (String hidden : fullvanished) {
-            if (getServer().getPlayerExact(hidden) == null) {
-                continue;
-            }
-
-            if (first) {
-                result += hidden + ChatColor.RED;
-                first = false;
-                continue;
-            }
-
-            result += ", " + hidden + ChatColor.RED;
-        }
-
         if (result.length() == 0) {
             player.sendMessage(ChatColor.RED + "All players are visible!");
         } else {
             player.sendMessage(ChatColor.RED + "Vanished players: " + result);
         }
     }
+    
+    public String getCleanModModeName(Player player) {
+        return "modmode_" + player.getName();
+    }
+    
+    public String getCleanModModeName(String name) {
+        return "modmode_" + name;
+    }
+    
+    public void savePlayerData(EntityPlayer entityhuman, String name) {
+        try {
+            NBTTagCompound nbttagcompound = new NBTTagCompound();
+
+            entityhuman.e(nbttagcompound);
+            
+            File file1 = new File(playerDir, name + ".dat.tmp");
+            File file2 = new File(this.playerDir, name + ".dat");
+
+            NBTCompressedStreamTools.a(nbttagcompound, (OutputStream) (new FileOutputStream(file1)));
+            if (file2.exists()) {
+                file2.delete();
+            }
+
+            file1.renameTo(file2);
+        } catch (Exception exception) {
+            MinecraftServer.getServer().getLogger().warning("Failed to save player data for " + entityhuman.getName());
+        }
+    }
+    
+    public NBTTagCompound loadPlayerData(EntityPlayer entityhuman, String name) {
+        NBTTagCompound nbttagcompound = ((WorldNBTStorage)entityhuman.server.worldServer[0].getDataManager().getPlayerFileData()).getPlayerData(name);
+        
+        if (nbttagcompound != null) {
+            entityhuman.f(nbttagcompound);
+        }
+        
+        return nbttagcompound;
+    }
 
     public void toggleModMode(final Player player, boolean toggle, boolean onJoin) {
-        String displayName = player.getName();
-        String name = ChatColor.GREEN + player.getDisplayName() + ChatColor.WHITE;
+        String old_name = player.getName();
+        String new_name = getCleanModModeName(player);
         if (!toggle) {
-            displayName = player.getDisplayName();
-            name = displayName;
+            
+            player.setMetadata("modmode", new FixedMetadataValue(this, false));
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
-                    ApiLayer.removeGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
-                    List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, name));
+                    ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
+                    List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, player.getName()));
                     
-                    if (!groups.contains(bPermsModGroup)) {
-                        ApiLayer.addGroup(world.getName(), CalculableType.USER, name, bPermsModGroup);
+                    String group = null;
+                    if (groupMap.containsKey(player.getName())) {
+                        group = groupMap.get(player.getName());
+                    }
+                    else {
+                        group = bPermsModGroups.get(0);
+                    }
+                    
+                    if (!groups.contains(group)) {
+                        ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
                     }
                 }
             }
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
         } else {
+            old_name = new_name;
+            new_name = player.getName();
+            player.setMetadata("modmode", new FixedMetadataValue(this, true));
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
-                    ApiLayer.addGroup(world.getName(), CalculableType.USER, name, bPermsModModeGroup);
+                    ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
                     
-                    List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, name));
+                    List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, player.getName()));
                     
-                    if (groups.contains(bPermsModGroup)) {
-                        ApiLayer.removeGroup(world.getName(), CalculableType.USER, name, bPermsModGroup);
+                    for (String group : bPermsModGroups) {
+                        if (groups.contains(group)) {
+                            groupMap.put(player.getName(), group);
+                            ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
+                        }
                     }
                 }
             }
@@ -161,40 +181,16 @@ public class ModMode extends JavaPlugin {
         Location loc = player.getLocation();
         final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
         final MinecraftServer server = entityplayer.server;
-        //send fake quit message
-	//Removed - needs to be fixed upstream
-	/*
-        if (!onJoin) {
-            PlayerQuitEvent playerQuitEvent = new PlayerQuitEvent(player, "\u00A7e" + entityplayer.listName + " left the game.");
-            getServer().getPluginManager().callEvent(playerQuitEvent);
-            if ((playerQuitEvent.getQuitMessage() != null) && (playerQuitEvent.getQuitMessage().length() > 0)) {
-                sendPacketToAll(new Packet3Chat(playerQuitEvent.getQuitMessage()));
-            }
-        }
-	*/
 
         // Save current potion effects
         Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
         potionMap.put(entityplayer.listName, activeEffects);
 
         //save with the old name, change it, then load with the new name
-        server.getPlayerList().playerFileData.save(entityplayer);
-        entityplayer.listName = name;
-        entityplayer.displayName = displayName;
-        server.getPlayerList().playerFileData.load(entityplayer);
-
-        //send fake join message
-	//Removed - needs to be fixed upstream
-	/*
-        PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(player, "\u00A7e" + entityplayer.listName + " joined the game.");
-        getServer().getPluginManager().callEvent(playerJoinEvent);
-        if ((playerJoinEvent.getJoinMessage() != null) && (playerJoinEvent.getJoinMessage().length() > 0)) {
-            sendPacketToAll(new Packet3Chat(playerJoinEvent.getJoinMessage()));
-        }
-*/
-        //untrack and track to show new name to clients
-        ((WorldServer) entityplayer.world).tracker.untrackEntity(entityplayer);
-        ((WorldServer) entityplayer.world).tracker.track(entityplayer);
+        savePlayerData(entityplayer, old_name);
+        
+        // Load ModMode data
+        loadPlayerData(entityplayer, new_name);
 
         //teleport to avoid speedhack
         if (!toggle || onJoin) {
@@ -211,9 +207,7 @@ public class ModMode extends JavaPlugin {
 
         //unvanish the player when they leave modmode
         if (!toggle) {
-            for (Player other : getServer().getOnlinePlayers()) {
-                other.showPlayer(player);
-            }
+            disableVanish(player);
         }
 
 
@@ -230,113 +224,53 @@ public class ModMode extends JavaPlugin {
             }
         }
         potionMap.remove(entityplayer.listName);
-        
-//        final Location loc2 = loc.clone();
-//        
-//        getServer().getScheduler().scheduleSyncDelayedTask(this, new Runnable() {
-//            public void run() {
-//                Packet20NamedEntitySpawn packet = new Packet20NamedEntitySpawn(entityplayer);
-//                server.getServerConfigurationManager().sendPacketNearby(loc2.getX(), loc2.getY(), loc2.getZ(), 128, ((CraftWorld) loc2.getWorld()).getHandle().dimension, packet);
-//                Packet29DestroyEntity destroy = new Packet29DestroyEntity(entityplayer.id);
-//                server.getServerConfigurationManager().sendPacketNearby(loc2.getX(), loc2.getY(), loc2.getZ(), 1, ((CraftWorld) loc2.getWorld()).getHandle().dimension, destroy);
-//            }
-//        }, 10);
+
 
         //toggle flight, set via the config path "allow.flight"
         if (allowFlight) {
             player.setAllowFlight(toggle);
         }
-
-        /*
-         * EntityPlayer oldplayer = ((CraftPlayer) player).getHandle();
-         * MinecraftServer server = oldplayer.server; NetServerHandler
-         * netServerHandler = oldplayer.netServerHandler;
-         *
-         * // remove old entity String quitMessage =
-         * server.serverConfigurationManager.disconnect(oldplayer); if
-         * ((quitMessage != null) && (quitMessage.length() > 0)) {
-         * server.serverConfigurationManager.sendAll(new
-         * Packet3Chat(quitMessage)); }
-         *
-         * // ((WorldServer) oldplayer.world).tracker.untrackPlayer(oldplayer);
-         * // oldplayer.die();
-         *
-         * // make new one with same NetServerHandler and ItemInWorldManager
-         * EntityPlayer entityplayer = new EntityPlayer(server,
-         * server.getWorldServer(0), name, oldplayer.itemInWorldManager); Player
-         * newplayer = entityplayer.getBukkitEntity();
-         *
-         * entityplayer.displayName = displayName; entityplayer.listName =
-         * displayName; entityplayer.netServerHandler = netServerHandler;
-         * entityplayer.netServerHandler.player = entityplayer; entityplayer.id
-         * = oldplayer.id;
-         * server.serverConfigurationManager.playerFileData.load(entityplayer);
-         * if (toggle) { entityplayer.locX = oldplayer.locX; entityplayer.locY =
-         * oldplayer.locY; entityplayer.locZ = oldplayer.locZ; entityplayer.yaw
-         * = oldplayer.yaw; entityplayer.pitch = oldplayer.pitch; }
-         * server.serverConfigurationManager.c(entityplayer);
-         * entityplayer.syncInventory();
-         *
-         * // untrack and track to make sure we can see everyone ((WorldServer)
-         * entityplayer.world).tracker.untrackEntity(entityplayer);
-         * ((WorldServer) entityplayer.world).tracker.track(entityplayer);
-         *
-         * // teleport to the player's location to avoid speedhack kick if
-         * (!toggle) { Location loc = new
-         * Location(entityplayer.world.getWorld(), entityplayer.locX,
-         * entityplayer.locY, entityplayer.locZ, entityplayer.yaw,
-         * entityplayer.pitch); newplayer.teleport(loc);
-        }
-         */
-    }
-    
-    private static void sendPacketToAll(Packet3Chat p){
-        MinecraftServer server = ((CraftServer)Bukkit.getServer()).getServer();
-        for (int i = 0; i < server.getPlayerList().players.size(); ++i) {
-            EntityPlayer ep = (EntityPlayer) server.getPlayerList().players.get(i);
-            ep.playerConnection.sendPacket(p);
-        }
     }
 
     public void updateVanishLists(Player player) {
-        //first show everyone, then decide who to hide
-        for (Player other : getServer().getOnlinePlayers()) {
-            player.showPlayer(other);
-        }
-
-        if (Permissions.hasPermission(player, Permissions.SHOWVANISHED)) {
-            return;
-        }
-
-        for (String hidden : fullvanished) {
-            Player hiddenPlayer = getServer().getPlayerExact(hidden);
-            if (hiddenPlayer != null) {
-                player.hidePlayer(hiddenPlayer);
-            }
-        }
-
-        if (Permissions.hasPermission(player, Permissions.SHOWMODS)) {
-            return;
-        }
-
-        for (String hidden : vanished) {
-            Player hiddenPlayer = getServer().getPlayerExact(hidden);
-            if (hiddenPlayer != null) {
-                player.hidePlayer(hiddenPlayer);
-            }
-        }
+        vanish.getManager().resetSeeing(player);
     }
 
     @Override
     public void onEnable() {
+        vanish = (VanishPlugin)getServer().getPluginManager().getPlugin("VanishNoPacket");
+        if (vanish == null) {
+            getLogger().severe("VanishNoPacket required. Download it here http://dev.bukkit.org/server-mods/vanish/");
+            getPluginLoader().disablePlugin(this);
+            return;
+        }
+        
+        Plugin plugin = getServer().getPluginManager().getPlugin("LogBlock");
+        if (plugin != null && !plugin.isEnabled()) {
+            getPluginLoader().enablePlugin(plugin);
+        }
+        
+        if (getServer().getPluginManager().isPluginEnabled("TagAPI")) {
+            getLogger().info("TagAPI is required for coloured names while in ModMode.");
+            getLogger().info("http://dev.bukkit.org/server-mods/tag/ ");
+        }
+        
         getServer().getPluginManager().registerEvents(listener, this);
         vanished = getConfig().getStringList("vanished");
-        fullvanished = getConfig().getStringList("fullvanished");
         modmode = getConfig().getStringList("modmode");
         allowFlight = getConfig().getBoolean("allow.flight", true);
         usingbperms = getConfig().getBoolean("bperms.enabled", false);
-        bPermsModGroup = getConfig().getString("bperms.modgroup", "Moderators");
+        bPermsModGroups = getConfig().getStringList("bperms.modgroup");
+        
+        if (bPermsModGroups.isEmpty()) {
+            bPermsModGroups.add("Moderators");
+        }
+        
+        groupMap = (HashMap<String, String>) getConfig().getMapList("groupmap");
+        
         bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
+        worldname = getConfig().getString("worldname", "world");
+        playerDir = new File(new File(getDataFolder().getParentFile(), worldname), "players").getAbsolutePath();
         
         potionMap = new HashMap<String, Collection<PotionEffect>>();
         
@@ -357,12 +291,13 @@ public class ModMode extends JavaPlugin {
     @Override
     public void onDisable() {
         getConfig().set("vanished", vanished);
-        getConfig().set("fullvanished", fullvanished);
         getConfig().set("modmode", modmode);
         getConfig().set("allow.flight", allowFlight);
         getConfig().set("bperms.enabled", usingbperms);
-        getConfig().set("bperms.modgroup", bPermsModGroup);
+        getConfig().set("bperms.modgroup", bPermsModGroups);
         getConfig().set("bperms.modmodegroup", bPermsModModeGroup);
+        getConfig().set("worldname", worldname);
+        getConfig().set("groupmap", groupMap);
         saveConfig();
     }
 
@@ -373,35 +308,8 @@ public class ModMode extends JavaPlugin {
         }
 
         Player player = (Player) sender;
-        if (command.getName().equalsIgnoreCase("vanish")) {
-            if (args.length == 1 && args[0].equalsIgnoreCase("list")) {
-                showVanishList(player);
-            } else {
-                if (vanished.contains(player.getName())) {
-                    player.sendMessage(ChatColor.RED + "You are already vanished!");
-                } else {
-                    // special case, we need to appear to mods but not everyone
-                    if (fullvanished.remove(player.getName())) {
-                        for (Player other : getServer().getOnlinePlayers()) {
-                            if (Permissions.hasPermission(other, Permissions.SHOWMODS)) {
-                                other.showPlayer(player);
-                            }
-                        }
-                    }
-                    vanished.add(player.getName());
-                    enableVanish(player);
-                }
-            }
-        } else if (command.getName().equalsIgnoreCase("fullvanish")) {
-            if (fullvanished.contains(player.getName())) {
-                player.sendMessage(ChatColor.RED + "You are already vanished!");
-            } else {
-                fullvanished.add(player.getName());
-                vanished.remove(player.getName());
-                enableFullVanish(player);
-            }
-        } else if (command.getName().equalsIgnoreCase("unvanish")) {
-            disableVanish(player);
+        if (command.getName().equalsIgnoreCase("vanishlist")) {
+            showVanishList(player);
         } else if (command.getName().equalsIgnoreCase("modmode")) {
             if (modmode.remove(player.getDisplayName())) {
                 toggleModMode(player, false, false);
