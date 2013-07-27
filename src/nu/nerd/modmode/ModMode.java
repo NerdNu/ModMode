@@ -113,25 +113,24 @@ public class ModMode extends JavaPlugin {
     }
     
     /**
-     * Save the player data for the named player to different files for ModMode
-     * and normal player mode.
+     * Save the player's data to different files for ModMode and normal player mode.
      * 
      * See {@link ModModeListener#onPlayerQuit(org.bukkit.event.player.PlayerQuitEvent)} 
      * for the rationale of why we can't trust playername.dat to store the player's 
      * inventory in all circumstances.
      * 
      * @param entityhuman the NMS player.
-     * @param name the player's name.
+     * @param player the player.
      * @param isModMode true if the saved data is for the ModMode inventory.
      */
-    public void savePlayerData(EntityPlayer entityhuman, String name, boolean isModMode) {
+    public void savePlayerData(EntityPlayer entityhuman, Player player, boolean isModMode) {
         try {
-            String fullName = ((isModMode) ? "modmode_" : "normal_") + name;
+            String fullName = ((isModMode) ? "modmode_" : "normal_") + player.getName();
             getLogger().info("savePlayerData(): " + fullName);
             NBTTagCompound nbttagcompound = new NBTTagCompound();
             entityhuman.e(nbttagcompound);
             
-            File file1 = new File(playerDir, name + ".dat.tmp");
+            File file1 = new File(playerDir, fullName + ".dat.tmp");
             File file2 = new File(playerDir, fullName + ".dat");
 
             NBTCompressedStreamTools.a(nbttagcompound, (OutputStream) (new FileOutputStream(file1)));
@@ -146,15 +145,14 @@ public class ModMode extends JavaPlugin {
     }
     
     /**
-     * Load the player data for the named player to different files for ModMode
-     * and normal player mode.
+     * Load the player's data from different files for ModMode and normal player mode.
      * 
      * @param entityhuman the NMS player.
-     * @param name the player's name.
+     * @param player the player.
      * @param isModMode true if the loaded data is for the ModMode inventory.
      */
-    public void loadPlayerData(EntityPlayer entityhuman, String name, boolean isModMode) {
-        String fullName = ((isModMode) ? "modmode_" : "normal_") + name;
+    public void loadPlayerData(EntityPlayer entityhuman, Player player, boolean isModMode) {
+        String fullName = ((isModMode) ? "modmode_" : "normal_") + player.getName();
         getLogger().info("loadPlayerData(): " + fullName);
         WorldServer worldServer = entityhuman.server.getWorldServer(0);
         WorldNBTStorage playerFileData = (WorldNBTStorage) worldServer.getDataManager().getPlayerFileData();
@@ -204,15 +202,14 @@ public class ModMode extends JavaPlugin {
 
         Location loc = player.getLocation();
         final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
-        final MinecraftServer server = entityplayer.server;
 
         // Save current potion effects
         Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
         potionMap.put(entityplayer.listName, activeEffects);
 
         // Save player data for the old ModMode state and load for the new.
-        savePlayerData(entityplayer, player.getName(), !enabled);
-        loadPlayerData(entityplayer, player.getName(), enabled);
+        savePlayerData(entityplayer, player, !enabled);
+        loadPlayerData(entityplayer, player, enabled);
 
         //teleport to avoid speedhack
         if (!enabled || onJoin) {

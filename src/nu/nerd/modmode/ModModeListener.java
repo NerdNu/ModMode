@@ -77,7 +77,7 @@ public class ModModeListener implements Listener {
         // Don't waste time loading non-existent player data.
         if (player.hasPermission(Permissions.TOGGLE)) {
             final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
-            plugin.loadPlayerData(entityplayer, player.getName(), false);
+            plugin.loadPlayerData(entityplayer, player, false);
         }
 
         if (plugin.isModMode(player)) {
@@ -105,14 +105,14 @@ public class ModModeListener implements Listener {
         if (plugin.isModMode(player)) {
             // Do the "lite" version of toggleModMode(player,false,false).
             // Save the current inventory state of the ModMode identity.
-            plugin.savePlayerData(entityplayer, player.getName(), true);
+            plugin.savePlayerData(entityplayer, player, true);
             
             // Reload the normal player inventory so that when the server saves, it saves that.
-            plugin.loadPlayerData(entityplayer, player.getName(), false);
+            plugin.loadPlayerData(entityplayer, player, false);
         } else {
             // Save extra player data if it could be needed.
             if (player.hasPermission(Permissions.TOGGLE)) {
-                plugin.savePlayerData(entityplayer, player.getName(), false);
+                plugin.savePlayerData(entityplayer, player, false);
             }
         }
     }
