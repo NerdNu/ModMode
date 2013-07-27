@@ -2,7 +2,6 @@ package nu.nerd.modmode;
 
 import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
-import de.diddiz.LogBlock.Consumer;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
@@ -24,7 +23,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.craftbukkit.v1_6_R2.entity.CraftPlayer;
 import org.bukkit.entity.Player;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
@@ -113,15 +111,28 @@ public class ModMode extends JavaPlugin {
     public String getCleanModModeName(Player player) {
         return "modmode_" + player.getName();
     }
-        
-    public void savePlayerData(EntityPlayer entityhuman, String name) {
+    
+    /**
+     * Save the player data for the named player to different files for ModMode
+     * and normal player mode.
+     * 
+     * See {@link ModModeListener#onPlayerQuit(org.bukkit.event.player.PlayerQuitEvent)} 
+     * for the rationale of why we can't trust playername.dat to store the player's 
+     * inventory in all circumstances.
+     * 
+     * @param entityhuman the NMS player.
+     * @param name the player's name.
+     * @param isModMode true if the saved data is for the ModMode inventory.
+     */
+    public void savePlayerData(EntityPlayer entityhuman, String name, boolean isModMode) {
         try {
-            getLogger().info("savePlayerData(): " + name);
+            String fullName = ((isModMode) ? "modmode_" : "normal_") + name;
+            getLogger().info("savePlayerData(): " + fullName);
             NBTTagCompound nbttagcompound = new NBTTagCompound();
             entityhuman.e(nbttagcompound);
             
             File file1 = new File(playerDir, name + ".dat.tmp");
-            File file2 = new File(playerDir, name + ".dat");
+            File file2 = new File(playerDir, fullName + ".dat");
 
             NBTCompressedStreamTools.a(nbttagcompound, (OutputStream) (new FileOutputStream(file1)));
             if (file2.exists()) {
@@ -134,25 +145,29 @@ public class ModMode extends JavaPlugin {
         }
     }
     
-    public NBTTagCompound loadPlayerData(EntityPlayer entityhuman, String name) {
-        getLogger().info("loadPlayerData(): " + name);
+    /**
+     * Load the player data for the named player to different files for ModMode
+     * and normal player mode.
+     * 
+     * @param entityhuman the NMS player.
+     * @param name the player's name.
+     * @param isModMode true if the loaded data is for the ModMode inventory.
+     */
+    public void loadPlayerData(EntityPlayer entityhuman, String name, boolean isModMode) {
+        String fullName = ((isModMode) ? "modmode_" : "normal_") + name;
+        getLogger().info("loadPlayerData(): " + fullName);
         WorldServer worldServer = entityhuman.server.getWorldServer(0);
         WorldNBTStorage playerFileData = (WorldNBTStorage) worldServer.getDataManager().getPlayerFileData();
-        NBTTagCompound nbttagcompound = playerFileData.getPlayerData(name);
+        NBTTagCompound nbttagcompound = playerFileData.getPlayerData(fullName);
         if (nbttagcompound != null) {
             entityhuman.f(nbttagcompound);
         } else {
-            getLogger().info("loadPlayerData(): no player data for: " + name);
+            getLogger().info("loadPlayerData(): no player data for: " + fullName);
         }
-        return nbttagcompound;
     }
 
     public void toggleModMode(final Player player, boolean enabled, boolean onJoin) {
-        String oldName, newName;
         if (!enabled) {
-            oldName = getCleanModModeName(player);
-            newName = player.getName();
-
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
@@ -168,9 +183,6 @@ public class ModMode extends JavaPlugin {
             modmode.remove(player.getName());
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
         } else {
-            oldName = player.getName();
-            newName = getCleanModModeName(player);
-            
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
@@ -198,9 +210,9 @@ public class ModMode extends JavaPlugin {
         Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
         potionMap.put(entityplayer.listName, activeEffects);
 
-        //save with the old name, change it, then load with the new name
-        savePlayerData(entityplayer, oldName);
-        loadPlayerData(entityplayer, newName);
+        // Save player data for the old ModMode state and load for the new.
+        savePlayerData(entityplayer, player.getName(), !enabled);
+        loadPlayerData(entityplayer, player.getName(), enabled);
 
         //teleport to avoid speedhack
         if (!enabled || onJoin) {

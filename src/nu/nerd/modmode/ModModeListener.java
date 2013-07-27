@@ -73,6 +73,13 @@ public class ModModeListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        
+        // Don't waste time loading non-existent player data.
+        if (player.hasPermission(Permissions.TOGGLE)) {
+            final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
+            plugin.loadPlayerData(entityplayer, player.getName(), false);
+        }
+
         if (plugin.isModMode(player)) {
             event.setJoinMessage(null);
             Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, new ModModeRunnable(player));
@@ -81,26 +88,32 @@ public class ModModeListener implements Listener {
         plugin.updateVanishLists(player);
     }
     
-    @EventHandler
-    public void onPlayerKick(PlayerKickEvent event) {
-        onDisconnect(event.getPlayer());
-    }
-
+    /**
+     * At the time of writing (on 1.6.2) in the event of a kick, which occurs 
+     * on restart, the player data is apparently saved by CraftBukkit before 
+     * entering this method (presumably after PlayerKickEvent).  Consequently, 
+     * the normal playername.dat gets overwritten with a copy of the ModMode 
+     * inventory if the player is in ModMode.  So we have to have two save files
+     * in addition to the normal playername.dat file to support ModMode.
+     * 
+     * @see ModMode#savePlayerData(EntityPlayer, String, boolean)
+     */
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        onDisconnect(event.getPlayer());
-    }
-
-    protected void onDisconnect(Player player) {
+        Player player = event.getPlayer();
+        final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
         if (plugin.isModMode(player)) {
-            final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
-            
             // Do the "lite" version of toggleModMode(player,false,false).
             // Save the current inventory state of the ModMode identity.
-            plugin.savePlayerData(entityplayer, plugin.getCleanModModeName(player));
+            plugin.savePlayerData(entityplayer, player.getName(), true);
             
             // Reload the normal player inventory so that when the server saves, it saves that.
-            plugin.loadPlayerData(entityplayer, player.getName());
+            plugin.loadPlayerData(entityplayer, player.getName(), false);
+        } else {
+            // Save extra player data if it could be needed.
+            if (player.hasPermission(Permissions.TOGGLE)) {
+                plugin.savePlayerData(entityplayer, player.getName(), false);
+            }
         }
     }
     
