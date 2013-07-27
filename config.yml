@@ -1,0 +1,14 @@
+vanished: []
+fullvanished: []
+modmode: []
+allow:
+  flight: true
+bperms:
+  enabled: true
+  modgroup:
+  - Moderators
+  modmodegroup: ModMode
+groupmap: !!map {}
+worldname: world
+debug:
+  playerdata: false

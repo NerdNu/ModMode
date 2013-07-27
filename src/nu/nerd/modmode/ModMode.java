@@ -43,6 +43,11 @@ public class ModMode extends JavaPlugin {
     public boolean usingbperms;
     
     /**
+     * If true, player data loads and saves are logged to the console.
+     */
+    private boolean debugPlayerData;
+    
+    /**
      * The set of all possible permissions groups who can transition into 
      * ModMode, e.g. Moderators, PAdmins, SAdmins, etc.  These must be
      * mutually-exclusive; you can't be a Moderator and a PAdmin.
@@ -126,7 +131,9 @@ public class ModMode extends JavaPlugin {
     public void savePlayerData(EntityPlayer entityhuman, Player player, boolean isModMode) {
         try {
             String fullName = ((isModMode) ? "modmode_" : "normal_") + player.getName();
-            getLogger().info("savePlayerData(): " + fullName);
+            if (debugPlayerData) {
+                getLogger().info("savePlayerData(): " + fullName);
+            }
             NBTTagCompound nbttagcompound = new NBTTagCompound();
             entityhuman.e(nbttagcompound);
             
@@ -153,14 +160,18 @@ public class ModMode extends JavaPlugin {
      */
     public void loadPlayerData(EntityPlayer entityhuman, Player player, boolean isModMode) {
         String fullName = ((isModMode) ? "modmode_" : "normal_") + player.getName();
-        getLogger().info("loadPlayerData(): " + fullName);
+        if (debugPlayerData) {
+            getLogger().info("loadPlayerData(): " + fullName);
+        }
         WorldServer worldServer = entityhuman.server.getWorldServer(0);
         WorldNBTStorage playerFileData = (WorldNBTStorage) worldServer.getDataManager().getPlayerFileData();
         NBTTagCompound nbttagcompound = playerFileData.getPlayerData(fullName);
         if (nbttagcompound != null) {
             entityhuman.f(nbttagcompound);
         } else {
-            getLogger().info("loadPlayerData(): no player data for: " + fullName);
+            if (debugPlayerData) {
+                getLogger().info("loadPlayerData(): no player data for: " + fullName);
+            }
         }
     }
 
@@ -262,6 +273,10 @@ public class ModMode extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        // Save sane defaults when config.yml is deleted.
+        saveDefaultConfig();
+        reloadConfig();
+        
         vanish = (VanishPlugin)getServer().getPluginManager().getPlugin("VanishNoPacket");
         if (vanish == null) {
             getLogger().severe("VanishNoPacket required. Download it here http://dev.bukkit.org/server-mods/vanish/");
@@ -299,6 +314,7 @@ public class ModMode extends JavaPlugin {
         worldname = getConfig().getString("worldname", "world");
         File worldDir = new File(Bukkit.getServer().getWorldContainer(), worldname);
         playerDir = new File(worldDir, "players").getAbsolutePath();
+        debugPlayerData = getConfig().getBoolean("debug.playerdata");
         
         potionMap = new HashMap<String, Collection<PotionEffect>>();
         
