@@ -22,6 +22,7 @@ import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.metadata.MetadataValue;
+import org.bukkit.potion.PotionEffect;
 import org.kitteh.tag.PlayerReceiveNameTagEvent;
 import org.kitteh.vanish.event.VanishStatusChangeEvent;
 
@@ -104,10 +105,10 @@ public class ModModeListener implements Listener {
         final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
         if (plugin.isModMode(player)) {
             // Do the "lite" version of toggleModMode(player,false,false).
-            // Save the current inventory state of the ModMode identity.
             plugin.savePlayerData(entityplayer, player, true);
-            
-            // Reload the normal player inventory so that when the server saves, it saves that.
+            for (PotionEffect potion : player.getActivePotionEffects()) {
+                player.removePotionEffect(potion.getType());
+            }
             plugin.loadPlayerData(entityplayer, player, false);
         } else {
             // Save extra player data if it could be needed.

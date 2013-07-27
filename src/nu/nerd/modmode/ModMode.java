@@ -16,6 +16,7 @@ import net.minecraft.server.v1_6_R2.*;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -63,7 +64,7 @@ public class ModMode extends JavaPlugin {
      * group can be restored when they leave ModMode.
      */
     public ConfigurationSection groupMap;
-    public HashMap<String, Collection<PotionEffect>> potionMap;
+    
     private String worldname;
     private String playerDir;
     protected VanishPlugin vanish;
@@ -214,26 +215,27 @@ public class ModMode extends JavaPlugin {
         Location loc = player.getLocation();
         final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
 
-        // Save current potion effects
-        Collection<PotionEffect> activeEffects = player.getActivePotionEffects();
-        potionMap.put(entityplayer.listName, activeEffects);
-
         // Save player data for the old ModMode state and load for the new.
+        // Clear potions in between so only those in the loaded file apply.
         savePlayerData(entityplayer, player, !enabled);
+        for (PotionEffect potion : player.getActivePotionEffects()) {
+            player.removePotionEffect(potion.getType());
+        }
         loadPlayerData(entityplayer, player, enabled);
 
-        //teleport to avoid speedhack
+        // Teleport to avoid speedhack
         if (!enabled || onJoin) {
             loc = new Location(entityplayer.world.getWorld(), entityplayer.locX, entityplayer.locY, entityplayer.locZ, entityplayer.yaw, entityplayer.pitch);
         }
         player.teleport(loc);
+
         // Hopefully stop some minor falls
         player.setFallDistance(0F);
+        
         // Chunk error ( resend to all clients )
         World w = player.getWorld();
         Chunk c = w.getChunkAt(player.getLocation());
         w.refreshChunk(c.getX(), c.getZ());
-
 
         // Visibility changes need to occur after the modmode list is updated. 
         if (enabled) {
@@ -243,25 +245,8 @@ public class ModMode extends JavaPlugin {
         } else {
             disableVanish(player);
         }
-
-
-        // Load new potion effects
-        for (PotionEffect effect : activeEffects){
-            player.removePotionEffect(effect.getType());
-        }
-        Collection<PotionEffect> newEffects = potionMap.get(entityplayer.listName);
-        if (newEffects != null) {
-            for (PotionEffect effect : newEffects){
-                player.addPotionEffect(effect);
-                // addPotionEffect doesn't send this packet for some reason, so we'll do it manually
-                entityplayer.playerConnection.sendPacket(new Packet41MobEffect(entityplayer.id, new MobEffect(effect.getType().getId(), effect.getDuration(), effect.getAmplifier())));
-            }
-        }
-        potionMap.remove(entityplayer.listName);
-
-
-        //toggle flight, set via the config path "allow.flight"
-        if (allowFlight) {
+        
+        if (allowFlight || player.getGameMode() == GameMode.CREATIVE) {
             player.setAllowFlight(enabled);
         }
         saveConfig();
@@ -315,8 +300,6 @@ public class ModMode extends JavaPlugin {
         File worldDir = new File(Bukkit.getServer().getWorldContainer(), worldname);
         playerDir = new File(worldDir, "players").getAbsolutePath();
         debugPlayerData = getConfig().getBoolean("debug.playerdata");
-        
-        potionMap = new HashMap<String, Collection<PotionEffect>>();
         
         if (usingbperms) {
             de.bananaco.bpermissions.imp.Permissions bPermsPlugin = null;
