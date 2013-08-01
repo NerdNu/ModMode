@@ -196,14 +196,14 @@ public class ModMode extends JavaPlugin {
             if (usingbperms) {
                 List<org.bukkit.World> worlds = getServer().getWorlds();
                 for (org.bukkit.World world : worlds) {
-                    ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
-                    
                     for (String group : bPermsModGroups) {
                         if (ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
                             groupMap.set(player.getName(), group);
                             ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
                         }
                     }
+                    
+                    ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);                    
                 }
             }
             if (! modmode.contains(player.getName())) {
