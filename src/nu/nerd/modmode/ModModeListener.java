@@ -1,7 +1,6 @@
 package nu.nerd.modmode;
 
 import de.diddiz.LogBlock.events.BlockChangePreLogEvent;
-import java.util.List;
 import net.minecraft.server.v1_6_R2.EntityPlayer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -18,10 +17,8 @@ import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.metadata.MetadataValue;
 import org.bukkit.potion.PotionEffect;
 import org.kitteh.tag.PlayerReceiveNameTagEvent;
 import org.kitteh.vanish.event.VanishStatusChangeEvent;
