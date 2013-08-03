@@ -10,6 +10,9 @@ softdepend: [bPermissions, TagAPI, LogBlock]
 harddepend: [VanishNoPacket]
 
 commands:
+  vanish:
+    description: Vanish, or check vanish state with /vanish check.
+    permission: modmode.vanish
   unvanish:
     description: Unvanish.
     permission: modmode.unvanish

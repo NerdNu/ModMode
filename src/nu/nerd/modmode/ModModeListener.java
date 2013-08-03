@@ -59,18 +59,15 @@ public class ModModeListener implements Listener {
         }
     }
     
-    @EventHandler(priority= EventPriority.LOWEST)
-    public void onVanishChange(VanishStatusChangeEvent event) {
-        if (event.isVanishing()) {
-            plugin.vanished.add(event.getPlayer().getName());
-        } else if (plugin.isModMode(event.getPlayer())) {
-            plugin.vanished.remove(event.getPlayer().getName());
-        }
-    }
-
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+
+        // Restore vanish state for mods and admins who left vanished.
+        if (plugin.isVanished(player) && player.hasPermission(Permissions.VANISH)) {
+        	plugin.enableVanish(player);
+        	event.setJoinMessage(null);
+        }
         
         // Don't waste time loading non-existent player data.
         if (player.hasPermission(Permissions.TOGGLE)) {
@@ -99,6 +96,12 @@ public class ModModeListener implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        
+        // Suppress quit messages when vanished.
+        if (plugin.isVanished(player) && player.hasPermission(Permissions.VANISH)) {
+        	event.setQuitMessage(null);
+        }
+        
         final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
         if (plugin.isModMode(player)) {
             // Do the "lite" version of toggleModMode(player,false,false).
@@ -117,13 +120,13 @@ public class ModModeListener implements Listener {
     
     @EventHandler(ignoreCancelled = true)
     public void onPlayerPickupItem(PlayerPickupItemEvent event) {
-        if (plugin.isInvisible(event.getPlayer()))
+        if (plugin.isVanished(event.getPlayer()))
             event.setCancelled(true);
     }
 
     @EventHandler
     public void onPlayerDropItem(PlayerDropItemEvent event) {
-        if (plugin.isInvisible(event.getPlayer()) || plugin.isModMode(event.getPlayer()))
+        if (plugin.isVanished(event.getPlayer()) || plugin.isModMode(event.getPlayer()))
             event.setCancelled(true);
     }
 
@@ -133,7 +136,7 @@ public class ModModeListener implements Listener {
             return;
 
         Player player = (Player) event.getTarget();
-        if (plugin.isModMode(player) || plugin.isInvisible(player))
+        if (plugin.isModMode(player) || plugin.isVanished(player))
             event.setCancelled(true);
     }
 
@@ -145,11 +148,11 @@ public class ModModeListener implements Listener {
             if (e.getDamager() instanceof Player && e.getEntity() instanceof Player) {
                 Player damager = (Player) e.getDamager();
                 Player victim = (Player) e.getEntity();
-                if (plugin.isModMode(damager) || plugin.isInvisible(damager)) {
+                if (plugin.isModMode(damager) || plugin.isVanished(damager)) {
                     event.setCancelled(true);
                 }
                 // only show message if they aren't invisible
-                else if (plugin.isModMode(victim) && !plugin.isInvisible(victim)) {
+                else if (plugin.isModMode(victim) && !plugin.isVanished(victim)) {
                     damager.sendMessage("This moderator is in ModMode.");
                     damager.sendMessage("ModMode should only be used for official server business.");
                     damager.sendMessage("Please let an admin know if a moderator is abusing ModMode.");
@@ -160,7 +163,7 @@ public class ModModeListener implements Listener {
         // block all damage to invisible and modmode players
         if (event.getEntity() instanceof Player) {
             Player victim = (Player) event.getEntity();
-            if (plugin.isModMode(victim) || plugin.isInvisible(victim)) {
+            if (plugin.isModMode(victim) || plugin.isVanished(victim)) {
                 // Extinguish view-obscuring fires.
                 victim.setFireTicks(0);
                 event.setCancelled(true);
