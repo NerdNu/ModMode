@@ -218,6 +218,8 @@ public class ModMode extends JavaPlugin {
 			if (usingbperms) {
 				List<org.bukkit.World> worlds = getServer().getWorlds();
 				for (org.bukkit.World world : worlds) {
+					// Remove the player's normal top level permissions group to
+					// account for negated permission nodes.
 					for (String group : bPermsModGroups) {
 						if (ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
 							groupMap.set(player.getName(), group);
