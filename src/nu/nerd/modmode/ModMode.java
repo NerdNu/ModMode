@@ -374,14 +374,14 @@ public class ModMode extends JavaPlugin {
 			if (args.length > 0 && args[0].equalsIgnoreCase("check")) {
 				String vanishText = isVanished(player) ? "vanished." : "visible.";
 				player.sendMessage(ChatColor.DARK_AQUA + "You are " + vanishText);
-			} else if (willBeVanishedInModMode(player)) {
+			} else if (isVanished(player)) {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
 			} else {
 				vanished.add(player.getName());
 				enableVanish(player);
 			}
 		} else if (command.getName().equalsIgnoreCase("unvanish")) {
-			if (willBeVanishedInModMode(player)) {
+			if (isVanished(player)) {
 				vanished.remove(player.getName());
 				disableVanish(player);
 			} else {
