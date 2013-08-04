@@ -21,7 +21,6 @@ import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.potion.PotionEffect;
 import org.kitteh.tag.PlayerReceiveNameTagEvent;
-import org.kitteh.vanish.event.VanishStatusChangeEvent;
 
 
 public class ModModeListener implements Listener {
@@ -64,7 +63,7 @@ public class ModModeListener implements Listener {
         Player player = event.getPlayer();
 
         // Restore vanish state for mods and admins who left vanished.
-        if (plugin.isVanished(player) && player.hasPermission(Permissions.VANISH)) {
+        if (plugin.willBeVanishedInModMode(player) && player.hasPermission(Permissions.VANISH)) {
         	plugin.enableVanish(player);
         	event.setJoinMessage(null);
         }
@@ -98,7 +97,7 @@ public class ModModeListener implements Listener {
         Player player = event.getPlayer();
         
         // Suppress quit messages when vanished.
-        if (plugin.isVanished(player) && player.hasPermission(Permissions.VANISH)) {
+        if (plugin.willBeVanishedInModMode(player) && player.hasPermission(Permissions.VANISH)) {
         	event.setQuitMessage(null);
         }
         
@@ -185,7 +184,7 @@ public class ModModeListener implements Listener {
     public void onFoodLevelChange(FoodLevelChangeEvent event) {
         if (event.getEntity() instanceof Player) {
             Player player = (Player)event.getEntity();
-            if( plugin.isModMode(player)){
+            if (plugin.isModMode(player)){
                 if (player.getFoodLevel() != 20) {
                     player.setFoodLevel(20);
                 }

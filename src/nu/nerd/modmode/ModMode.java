@@ -76,13 +76,22 @@ public class ModMode extends JavaPlugin {
 	protected TagAPI tagapi;
 
 	/**
+	 * Return true if the player is currently vanished.
+	 * 
+	 * @return true if the player is currently vanished.
+	 */
+	public boolean isVanished(Player player) {
+		return vanish.getManager().isVanished(player);
+	}
+	
+	/**
 	 * Return true if the player should be vanished when he has permission (is
 	 * an admin or is in ModMode).
 	 * 
 	 * @param player the player.
 	 * @return true if should be vanished when next in ModMode, or is an admin.
 	 */
-	public boolean isVanished(Player player) {
+	public boolean willBeVanishedInModMode(Player player) {
 		return vanished.contains(player.getName());
 	}
 
@@ -253,7 +262,7 @@ public class ModMode extends JavaPlugin {
 
 		// Visibility changes need to occur after the modmode list is updated.
 		if (enabled) {
-			if (isVanished(player)) {
+			if (willBeVanishedInModMode(player)) {
 				enableVanish(player);
 			}
 		} else {
@@ -363,14 +372,14 @@ public class ModMode extends JavaPlugin {
 			if (args.length > 0 && args[0].equalsIgnoreCase("check")) {
 				String vanishText = isVanished(player) ? "vanished." : "visible.";
 				player.sendMessage(ChatColor.DARK_AQUA + "You are " + vanishText);
-			} else if (isVanished(player)) {
+			} else if (willBeVanishedInModMode(player)) {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
 			} else {
 				vanished.add(player.getName());
 				enableVanish(player);
 			}
 		} else if (command.getName().equalsIgnoreCase("unvanish")) {
-			if (isVanished(player)) {
+			if (willBeVanishedInModMode(player)) {
 				vanished.remove(player.getName());
 				disableVanish(player);
 			} else {
