@@ -271,9 +271,7 @@ public class ModMode extends JavaPlugin {
 			disableVanish(player);
 		}
 
-		if (allowFlight || player.getGameMode() == GameMode.CREATIVE) {
-			player.setAllowFlight(enabled);
-		}
+		player.setAllowFlight((enabled && allowFlight) || player.getGameMode() == GameMode.CREATIVE);
 		saveConfig();
 	}
 
