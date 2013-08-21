@@ -83,7 +83,7 @@ public class ModMode extends JavaPlugin {
 	public boolean isVanished(Player player) {
 		return vanish.getManager().isVanished(player);
 	}
-	
+
 	/**
 	 * Return true if the player should be vanished when he has permission (is
 	 * an admin or is in ModMode).
@@ -252,7 +252,14 @@ public class ModMode extends JavaPlugin {
 			loc = new Location(entityplayer.world.getWorld(), entityplayer.locX, entityplayer.locY, entityplayer.locZ, entityplayer.yaw,
 			entityplayer.pitch);
 		}
-		player.teleport(loc);
+
+		// Surprisingly, this can throw an exception complaining that the
+		// player is already in the chunk.
+		try {
+			player.teleport(loc);
+		} catch (Exception ex) {
+			getLogger().info("Teleport caused an exception (caught): " + ex.getClass().getName() + " " + ex.getMessage());
+		}
 
 		// Hopefully stop some minor falls
 		player.setFallDistance(0F);
@@ -291,6 +298,10 @@ public class ModMode extends JavaPlugin {
 			getPluginLoader().disablePlugin(this);
 			return;
 		} else {
+			// Make sure that VanishNoPacket is enabled.  Spigot doesn't seem
+			// to treat harddepend as mandating a load order. 
+			getPluginLoader().enablePlugin(vanish);
+
 			// Intercept the /vanish command and handle it here.
 			CommandExecutor ownExecutor = getCommand("modmode").getExecutor();
 			PluginCommand vanishCommand = vanish.getCommand("vanish");
