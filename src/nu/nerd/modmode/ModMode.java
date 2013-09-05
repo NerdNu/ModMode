@@ -178,6 +178,11 @@ public class ModMode extends JavaPlugin {
 			config.set("inventory." + slot, inventory[slot]);
 		}
 
+		ItemStack[] enderChest = player.getEnderChest().getContents();
+		for (int slot = 0; slot < enderChest.length; ++slot) {
+			config.set("enderchest." + slot, enderChest[slot]);
+		}
+
 		try {
 			config.save(stateFile);
 		} catch (Exception exception) {
@@ -215,6 +220,8 @@ public class ModMode extends JavaPlugin {
 				float yaw = (float) config.getDouble("yaw");
 				player.teleport(new Location(Bukkit.getWorld(world), x, y, z, yaw, pitch));
 			}
+
+			player.getEnderChest().clear();
 			player.getInventory().clear();
 			player.getInventory().setHelmet(config.getItemStack("helmet"));
 			player.getInventory().setChestplate(config.getItemStack("chestplate"));
@@ -240,6 +247,18 @@ public class ModMode extends JavaPlugin {
 						int slot = Integer.parseInt(key);
 						ItemStack item = inventory.getItemStack(key);
 						player.getInventory().setItem(slot, item);
+					} catch (Exception ex) {
+					}
+				}
+			}
+
+			ConfigurationSection enderChest = config.getConfigurationSection("enderchest");
+			if (enderChest != null) {
+				for (String key : enderChest.getKeys(false)) {
+					try {
+						int slot = Integer.parseInt(key);
+						ItemStack item = enderChest.getItemStack(key);
+						player.getEnderChest().setItem(slot, item);
 					} catch (Exception ex) {
 					}
 				}
