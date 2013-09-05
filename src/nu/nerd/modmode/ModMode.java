@@ -1,17 +1,10 @@
 package nu.nerd.modmode;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeSet;
 import java.util.logging.Level;
-
-import net.minecraft.server.v1_6_R2.EntityPlayer;
-import net.minecraft.server.v1_6_R2.NBTCompressedStreamTools;
-import net.minecraft.server.v1_6_R2.NBTTagCompound;
-import net.minecraft.server.v1_6_R2.WorldNBTStorage;
-import net.minecraft.server.v1_6_R2.WorldServer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -24,8 +17,9 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.craftbukkit.v1_6_R2.entity.CraftPlayer;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
@@ -71,7 +65,6 @@ public class ModMode extends JavaPlugin {
 	public ConfigurationSection groupMap;
 
 	private String worldname;
-	private String playerDir;
 	protected VanishPlugin vanish;
 	protected TagAPI tagapi;
 
@@ -96,7 +89,7 @@ public class ModMode extends JavaPlugin {
 	}
 
 	public boolean isModMode(Player player) {
-		return modmode.contains(player.getDisplayName());
+		return modmode.contains(player.getName());
 	}
 
 	public void enableVanish(Player player) {
@@ -137,67 +130,127 @@ public class ModMode extends JavaPlugin {
 	}
 
 	/**
-	 * Save the player's data to different files for ModMode and normal player
-	 * mode.
+	 * Return the File used to store the player's normal or ModMode state.
 	 * 
-	 * See
-	 * {@link ModModeListener#onPlayerQuit(org.bukkit.event.player.PlayerQuitEvent)}
-	 * for the rationale of why we can't trust playername.dat to store the
-	 * player's inventory in all circumstances.
+	 * @param player the player.
+	 * @param isModMode true if the data is for the ModMode state.
+	 * @return the File used to store the player's normal or ModMode state.
+	 */
+	public File getStateFile(Player player, boolean isModMode) {
+		File playersDir = new File(getDataFolder(), "players");
+		playersDir.mkdirs();
+
+		String fileName = player.getName() + ((isModMode) ? "_modmode" : "_normal") + ".yml";
+		return new File(playersDir, fileName);
+	}
+
+	/**
+	 * Save the player's data to a YAML configuration file.
 	 * 
-	 * @param entityhuman the NMS player.
 	 * @param player the player.
 	 * @param isModMode true if the saved data is for the ModMode inventory.
 	 */
-	public void savePlayerData(EntityPlayer entityhuman, Player player, boolean isModMode) {
+	public void savePlayerData(Player player, boolean isModMode) {
+		File stateFile = getStateFile(player, isModMode);
+		if (debugPlayerData) {
+			getLogger().info("savePlayerData(): " + stateFile);
+		}
+
+		YamlConfiguration config = new YamlConfiguration();
+		config.set("health", player.getHealth());
+		config.set("food", player.getFoodLevel());
+		config.set("experience", player.getLevel() + player.getExp());
+		config.set("world", player.getLocation().getWorld().getName());
+		config.set("x", player.getLocation().getX());
+		config.set("y", player.getLocation().getY());
+		config.set("z", player.getLocation().getZ());
+		config.set("pitch", player.getLocation().getPitch());
+		config.set("yaw", player.getLocation().getYaw());
+		config.set("helmet", player.getInventory().getHelmet());
+		config.set("chestplate", player.getInventory().getChestplate());
+		config.set("leggings", player.getInventory().getLeggings());
+		config.set("boots", player.getInventory().getBoots());
+		for (PotionEffect potion : player.getActivePotionEffects()) {
+			config.set("potions." + potion.getType().getName(), potion);
+		}
+		ItemStack[] inventory = player.getInventory().getContents();
+		for (int slot = 0; slot < inventory.length; ++slot) {
+			config.set("inventory." + slot, inventory[slot]);
+		}
+
 		try {
-			String fullName = ((isModMode) ? "modmode_" : "normal_") + player.getName();
-			if (debugPlayerData) {
-				getLogger().info("savePlayerData(): " + fullName);
-			}
-			NBTTagCompound nbttagcompound = new NBTTagCompound();
-			entityhuman.e(nbttagcompound);
-
-			File file1 = new File(playerDir, fullName + ".dat.tmp");
-			File file2 = new File(playerDir, fullName + ".dat");
-
-			NBTCompressedStreamTools.a(nbttagcompound, new FileOutputStream(file1));
-			if (file2.exists()) {
-				file2.delete();
-			}
-
-			file1.renameTo(file2);
+			config.save(stateFile);
 		} catch (Exception exception) {
-			getLogger().warning("Failed to save player data for " + entityhuman.getName());
+			getLogger().warning("Failed to save player data for " + player.getName());
 		}
 	}
 
 	/**
-	 * Load the player's data from different files for ModMode and normal player
-	 * mode.
+	 * Load the player's data from a YAML configuration file.
 	 * 
-	 * @param entityhuman the NMS player.
 	 * @param player the player.
 	 * @param isModMode true if the loaded data is for the ModMode inventory.
 	 */
-	public void loadPlayerData(EntityPlayer entityhuman, Player player, boolean isModMode) {
-		String fullName = ((isModMode) ? "modmode_" : "normal_") + player.getName();
+	public void loadPlayerData(Player player, boolean isModMode) {
+		File stateFile = getStateFile(player, isModMode);
 		if (debugPlayerData) {
-			getLogger().info("loadPlayerData(): " + fullName);
+			getLogger().info("loadPlayerData(): " + stateFile);
 		}
-		WorldServer worldServer = entityhuman.server.getWorldServer(0);
-		WorldNBTStorage playerFileData = (WorldNBTStorage) worldServer.getDataManager().getPlayerFileData();
-		NBTTagCompound nbttagcompound = playerFileData.getPlayerData(fullName);
-		if (nbttagcompound != null) {
-			entityhuman.f(nbttagcompound);
-		} else {
-			if (debugPlayerData) {
-				getLogger().info("loadPlayerData(): no player data for: " + fullName);
+
+		YamlConfiguration config = new YamlConfiguration();
+		try {
+			config.load(stateFile);
+			player.setHealth(config.getDouble("health"));
+			player.setFoodLevel(config.getInt("food"));
+			float level = (float) config.getDouble("experience");
+			player.setLevel((int) Math.floor(level));
+			player.setExp(level - player.getLevel());
+
+			if (!isModMode) {
+				String world = config.getString("world");
+				double x = config.getDouble("x");
+				double y = config.getDouble("y");
+				double z = config.getDouble("z");
+				float pitch = (float) config.getDouble("pitch");
+				float yaw = (float) config.getDouble("yaw");
+				player.teleport(new Location(Bukkit.getWorld(world), x, y, z, yaw, pitch));
 			}
+			player.getInventory().clear();
+			player.getInventory().setHelmet(config.getItemStack("helmet"));
+			player.getInventory().setChestplate(config.getItemStack("chestplate"));
+			player.getInventory().setLeggings(config.getItemStack("leggings"));
+			player.getInventory().setBoots(config.getItemStack("boots"));
+
+			for (PotionEffect potion : player.getActivePotionEffects()) {
+				player.removePotionEffect(potion.getType());
+			}
+
+			ConfigurationSection potions = config.getConfigurationSection("potions");
+			if (potions != null) {
+				for (String key : potions.getKeys(false)) {
+					PotionEffect potion = (PotionEffect) potions.get(key);
+					player.addPotionEffect(potion);
+				}
+			}
+
+			ConfigurationSection inventory = config.getConfigurationSection("inventory");
+			if (inventory != null) {
+				for (String key : inventory.getKeys(false)) {
+					try {
+						int slot = Integer.parseInt(key);
+						ItemStack item = inventory.getItemStack(key);
+						player.getInventory().setItem(slot, item);
+					} catch (Exception ex) {
+					}
+				}
+			}
+		} catch (Exception ex) {
+			getLogger().warning("Failed to load player data for " + player.getName());
+			ex.printStackTrace();
 		}
 	}
 
-	public void toggleModMode(final Player player, boolean enabled, boolean onJoin) {
+	public void toggleModMode(final Player player, boolean enabled) {
 		if (!enabled) {
 			if (usingbperms) {
 				List<org.bukkit.World> worlds = getServer().getWorlds();
@@ -236,41 +289,34 @@ public class ModMode extends JavaPlugin {
 			player.sendMessage(ChatColor.RED + "You are now in ModMode!");
 		}
 
-		Location loc = player.getLocation();
-		final EntityPlayer entityplayer = ((CraftPlayer) player).getHandle();
-
 		// Save player data for the old ModMode state and load for the new.
-		// Clear potions in between so only those in the loaded file apply.
-		savePlayerData(entityplayer, player, !enabled);
-		for (PotionEffect potion : player.getActivePotionEffects()) {
-			player.removePotionEffect(potion.getType());
-		}
-		loadPlayerData(entityplayer, player, enabled);
-
-		// Teleport to avoid speedhack
-		if (!enabled || onJoin) {
-			loc = new Location(entityplayer.world.getWorld(), entityplayer.locX, entityplayer.locY, entityplayer.locZ, entityplayer.yaw,
-			entityplayer.pitch);
-		}
-
-		// Surprisingly, this can throw an exception complaining that the
-		// player is already in the chunk.
-		try {
-			player.teleport(loc);
-		} catch (Exception ex) {
-			getLogger().info("Teleport caused an exception (caught): " + ex.getClass().getName() + " " + ex.getMessage());
-		}
+		savePlayerData(player, !enabled);
+		loadPlayerData(player, enabled);
 
 		// Hopefully stop some minor falls
 		player.setFallDistance(0F);
 
-		// Chunk error ( resend to all clients )
+		// Chunk error (resend to all clients).
 		World w = player.getWorld();
 		Chunk c = w.getChunkAt(player.getLocation());
 		w.refreshChunk(c.getX(), c.getZ());
 
+		restoreTransientState(player, enabled);
+		saveConfig();
+	}
+
+	/**
+	 * Restore some player attributes that are affected by ModMode but not
+	 * stored.
+	 * 
+	 * The attributes can be computed by the player current ModMode status.
+	 * 
+	 * @param player the player.
+	 * @param isInModMode true if the player is in ModMode.
+	 */
+	public void restoreTransientState(Player player, boolean isInModMode) {
 		// Visibility changes need to occur after the modmode list is updated.
-		if (enabled) {
+		if (isInModMode) {
 			if (willBeVanishedInModMode(player)) {
 				enableVanish(player);
 			}
@@ -278,8 +324,7 @@ public class ModMode extends JavaPlugin {
 			disableVanish(player);
 		}
 
-		player.setAllowFlight((enabled && allowFlight) || player.getGameMode() == GameMode.CREATIVE);
-		saveConfig();
+		player.setAllowFlight((isInModMode && allowFlight) || player.getGameMode() == GameMode.CREATIVE);
 	}
 
 	public void updateVanishLists(Player player) {
@@ -298,8 +343,8 @@ public class ModMode extends JavaPlugin {
 			getPluginLoader().disablePlugin(this);
 			return;
 		} else {
-			// Make sure that VanishNoPacket is enabled.  Spigot doesn't seem
-			// to treat harddepend as mandating a load order. 
+			// Make sure that VanishNoPacket is enabled. Spigot doesn't seem
+			// to treat harddepend as mandating a load order.
 			getPluginLoader().enablePlugin(vanish);
 
 			// Intercept the /vanish command and handle it here.
@@ -337,8 +382,6 @@ public class ModMode extends JavaPlugin {
 
 		bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
 		worldname = getConfig().getString("worldname", "world");
-		File worldDir = new File(Bukkit.getServer().getWorldContainer(), worldname);
-		playerDir = new File(worldDir, "players").getAbsolutePath();
 		debugPlayerData = getConfig().getBoolean("debug.playerdata");
 
 		if (usingbperms) {
@@ -397,11 +440,11 @@ public class ModMode extends JavaPlugin {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already visible.");
 			}
 		} else if (command.getName().equalsIgnoreCase("modmode")) {
-			if (modmode.remove(player.getDisplayName())) {
-				toggleModMode(player, false, false);
+			if (modmode.remove(player.getName())) {
+				toggleModMode(player, false);
 			} else {
-				modmode.add(player.getDisplayName());
-				toggleModMode(player, true, false);
+				modmode.add(player.getName());
+				toggleModMode(player, true);
 			}
 		}
 
