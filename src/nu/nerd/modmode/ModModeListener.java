@@ -44,27 +44,21 @@ public class ModModeListener implements Listener {
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
+		boolean inModMode = plugin.isModMode(player);
 
 		// Restore vanish state for mods and admins who left vanished.
-		if (plugin.willBeVanishedInModMode(player) && player.hasPermission(Permissions.VANISH)) {
+		if (plugin.willBeVanishedInModMode(player) &&
+			(inModMode || player.hasPermission(Permissions.VANISH))) {
 			plugin.enableVanish(player);
 			event.setJoinMessage(null);
 		}
-
-		boolean inModMode = plugin.isModMode(player);
-		if (inModMode) {
-			event.setJoinMessage(null);
-		}
-		plugin.restoreTransientState(player, inModMode);
-		plugin.updateVanishLists(player);
+		plugin.restoreFlight(player, inModMode);
 	}
 
 	@EventHandler
 	public void onPlayerQuit(PlayerQuitEvent event) {
-		Player player = event.getPlayer();
-
 		// Suppress quit messages when vanished.
-		if (plugin.willBeVanishedInModMode(player) && player.hasPermission(Permissions.VANISH)) {
+		if (plugin.isVanished(event.getPlayer())) {
 			event.setQuitMessage(null);
 		}
 	}

@@ -320,34 +320,29 @@ public class ModMode extends JavaPlugin {
 		Chunk c = w.getChunkAt(player.getLocation());
 		w.refreshChunk(c.getX(), c.getZ());
 
-		restoreTransientState(player, enabled);
-		saveConfig();
-	}
-
-	/**
-	 * Restore some player attributes that are affected by ModMode but not
-	 * stored.
-	 * 
-	 * The attributes can be computed by the player current ModMode status.
-	 * 
-	 * @param player the player.
-	 * @param isInModMode true if the player is in ModMode.
-	 */
-	public void restoreTransientState(Player player, boolean isInModMode) {
 		// Visibility changes need to occur after the modmode list is updated.
-		if (isInModMode) {
+		if (enabled) {
 			if (willBeVanishedInModMode(player)) {
 				enableVanish(player);
 			}
 		} else {
 			disableVanish(player);
 		}
+		restoreFlight(player, enabled);
 
-		player.setAllowFlight((isInModMode && allowFlight) || player.getGameMode() == GameMode.CREATIVE);
+		// Permissions changed, so change who can be seen by player.
+		vanish.getManager().resetSeeing(player);
+		saveConfig();
 	}
 
-	public void updateVanishLists(Player player) {
-		vanish.getManager().resetSeeing(player);
+	/**
+	 * Restore flight ability if in ModMode or creative game mode.
+	 * 
+	 * @param player the player.
+	 * @param isInModMode true if the player is in ModMode.
+	 */
+	public void restoreFlight(Player player, boolean isInModMode) {
+		player.setAllowFlight((isInModMode && allowFlight) || player.getGameMode() == GameMode.CREATIVE);
 	}
 
 	@Override
