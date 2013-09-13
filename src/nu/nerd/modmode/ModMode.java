@@ -283,6 +283,8 @@ public class ModMode extends JavaPlugin {
 
 	public void toggleModMode(final Player player, boolean enabled) {
 		if (!enabled) {
+			disableVanish(player);
+			updateAllPlayersSeeing();
 			if (usingbperms) {
 				List<org.bukkit.World> worlds = getServer().getWorlds();
 				for (org.bukkit.World world : worlds) {
@@ -317,6 +319,10 @@ public class ModMode extends JavaPlugin {
 			if (!modmode.contains(player.getName())) {
 				modmode.add(player.getName());
 			}
+			if (willBeVanishedInModMode(player)) {
+				enableVanish(player);
+			}
+			updateAllPlayersSeeing();
 			player.sendMessage(ChatColor.RED + "You are now in ModMode!");
 		}
 
@@ -332,16 +338,7 @@ public class ModMode extends JavaPlugin {
 		Chunk c = w.getChunkAt(player.getLocation());
 		w.refreshChunk(c.getX(), c.getZ());
 
-		// Visibility changes need to occur after the modmode list is updated.
-		if (enabled) {
-			if (willBeVanishedInModMode(player)) {
-				enableVanish(player);
-			}
-		} else {
-			disableVanish(player);
-		}
 		restoreFlight(player, enabled);
-		updateAllPlayersSeeing();
 		saveConfig();
 	}
 
