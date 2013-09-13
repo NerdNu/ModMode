@@ -53,6 +53,7 @@ public class ModModeListener implements Listener {
 			event.setJoinMessage(null);
 		}
 		plugin.restoreFlight(player, inModMode);
+		plugin.updateAllPlayersSeeing();
 	}
 
 	@EventHandler

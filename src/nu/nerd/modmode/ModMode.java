@@ -104,6 +104,19 @@ public class ModMode extends JavaPlugin {
 		}
 	}
 
+	/**
+	 * Try to coerce VanishNoPacket into showing or hiding players to each other
+	 * based on their current vanish state and permissions.
+	 * 
+	 * Just calling resetSeeing() when a moderator toggles ModMode (and hence
+	 * permissions and vanish state) is apparently insufficient.
+	 */
+	public void updateAllPlayersSeeing() {
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			vanish.getManager().playerRefresh(player);
+		}
+	}
+
 	public void showVanishList(CommandSender sender) {
 		String result = "";
 		boolean first = true;
@@ -265,7 +278,6 @@ public class ModMode extends JavaPlugin {
 			}
 		} catch (Exception ex) {
 			getLogger().warning("Failed to load player data for " + player.getName());
-			ex.printStackTrace();
 		}
 	}
 
@@ -329,9 +341,7 @@ public class ModMode extends JavaPlugin {
 			disableVanish(player);
 		}
 		restoreFlight(player, enabled);
-
-		// Permissions changed, so change who can be seen by player.
-		vanish.getManager().resetSeeing(player);
+		updateAllPlayersSeeing();
 		saveConfig();
 	}
 
