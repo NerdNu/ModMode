@@ -169,6 +169,16 @@ public class ModMode extends JavaPlugin {
 			getLogger().info("savePlayerData(): " + stateFile);
 		}
 
+		// Keep 2 backups of saved player data.
+		try {
+			File backup1 = new File(stateFile.getPath() + ".1");
+			File backup2 = new File(stateFile.getPath() + ".2");
+			backup1.renameTo(backup2);
+			stateFile.renameTo(backup1);
+		} catch (Exception ex) {
+			getLogger().warning(ex.getClass().getName() + " raised saving state file backups for " + player.getName() + ".");
+		}
+
 		YamlConfiguration config = new YamlConfiguration();
 		config.set("health", player.getHealth());
 		config.set("food", player.getFoodLevel());
