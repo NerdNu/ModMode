@@ -64,6 +64,26 @@ public class ModMode extends JavaPlugin {
 	 */
 	public ConfigurationSection groupMap;
 
+	/**
+	 * Commands executed immediately before ModMode is activated.
+	 */
+	public List<String> beforeActivationCommands;
+
+	/**
+	 * Commands executed immediately after ModMode is activated.
+	 */
+	public List<String> afterActivationCommands;
+
+	/**
+	 * Commands executed immediately before ModMode is deactivated.
+	 */
+	public List<String> beforeDeactivationCommands;
+
+	/**
+	 * Commands executed immediately after ModMode is deactivated.
+	 */
+	public List<String> afterDeactivationCommands;
+
 	protected VanishPlugin vanish;
 	protected TagAPI tagapi;
 
@@ -291,6 +311,12 @@ public class ModMode extends JavaPlugin {
 	}
 
 	public void toggleModMode(final Player player, boolean enabled) {
+		if (enabled) {
+			runCommands(player, beforeActivationCommands);
+		} else {
+			runCommands(player, beforeDeactivationCommands);
+		}
+
 		if (!enabled) {
 			disableVanish(player);
 			updateAllPlayersSeeing();
@@ -349,6 +375,12 @@ public class ModMode extends JavaPlugin {
 
 		restoreFlight(player, enabled);
 		saveConfig();
+
+		if (enabled) {
+			runCommands(player, afterActivationCommands);
+		} else {
+			runCommands(player, afterDeactivationCommands);
+		}
 	}
 
 	/**
@@ -412,6 +444,11 @@ public class ModMode extends JavaPlugin {
 
 		bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
 		debugPlayerData = getConfig().getBoolean("debug.playerdata");
+
+		beforeActivationCommands = getConfig().getStringList("commands.activate.before");
+		afterActivationCommands = getConfig().getStringList("commands.activate.after");
+		beforeDeactivationCommands = getConfig().getStringList("commands.deactivate.before");
+		afterDeactivationCommands = getConfig().getStringList("commands.deactivate.after");
 
 		if (usingbperms) {
 			de.bananaco.bpermissions.imp.Permissions bPermsPlugin = null;
@@ -477,5 +514,27 @@ public class ModMode extends JavaPlugin {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Run all of the commands in the List of Strings.
+	 * 
+	 * @param player the moderator causing the commands to run.
+	 * @param commands the commands to run.
+	 */
+	public void runCommands(Player player, List<String> commands) {
+		for (String command : commands) {
+			// dispatchCommand() doesn't cope with a leading '/' in commands.
+			if (command.length() > 0 && command.charAt(0) == '/') {
+				command = command.substring(1);
+			}
+			try {
+				if (!Bukkit.getServer().dispatchCommand(player, command)) {
+					getLogger().warning("Command \"" + command + "\" could not be executed.");
+				}
+			} catch (Exception ex) {
+				getLogger().severe("Command \"" + command + "\" raised " + ex.getClass().getName());
+			}
+		}
 	}
 }

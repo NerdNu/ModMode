@@ -11,4 +11,13 @@ bperms:
 groupmap: !!map {}
 debug:
   playerdata: false
+commands:
+  activate:
+    before: []
+    after:
+    - /we cui
+    - /lb toolblock on
+  deactivate:
+    before: []
+    after: []
     
