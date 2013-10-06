@@ -64,7 +64,6 @@ public class ModMode extends JavaPlugin {
 	 */
 	public ConfigurationSection groupMap;
 
-	private String worldname;
 	protected VanishPlugin vanish;
 	protected TagAPI tagapi;
 
@@ -412,7 +411,6 @@ public class ModMode extends JavaPlugin {
 		}
 
 		bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
-		worldname = getConfig().getString("worldname", "world");
 		debugPlayerData = getConfig().getBoolean("debug.playerdata");
 
 		if (usingbperms) {
@@ -437,7 +435,6 @@ public class ModMode extends JavaPlugin {
 		getConfig().set("bperms.enabled", usingbperms);
 		getConfig().set("bperms.modgroup", bPermsModGroups);
 		getConfig().set("bperms.modmodegroup", bPermsModModeGroup);
-		getConfig().set("worldname", worldname);
 		saveConfig();
 	}
 

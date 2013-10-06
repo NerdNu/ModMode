@@ -9,6 +9,6 @@ bperms:
   - Moderators
   modmodegroup: ModMode
 groupmap: !!map {}
-worldname: world
 debug:
   playerdata: false
+    
