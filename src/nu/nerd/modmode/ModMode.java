@@ -323,13 +323,18 @@ public class ModMode extends JavaPlugin {
 			if (usingbperms) {
 				List<org.bukkit.World> worlds = getServer().getWorlds();
 				for (org.bukkit.World world : worlds) {
-					ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
+					// If the player is in the ModMode group, restore their
+					// former permissions group. Otherwise, they must be an
+					// admin whose permissions did not change.
+					if (ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup)) {
+						ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
 
-					// Players leaving ModMode are assumed to be mods if not
-					// otherwise specified.
-					String group = groupMap.getString(player.getName(), bPermsModGroups.get(0));
-					if (!ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
-						ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
+						// Players leaving ModMode are assumed to be mods if not
+						// otherwise specified.
+						String group = groupMap.getString(player.getName(), bPermsModGroups.get(0));
+						if (!ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
+							ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
+						}
 					}
 				}
 			}
@@ -341,14 +346,19 @@ public class ModMode extends JavaPlugin {
 				for (org.bukkit.World world : worlds) {
 					// Remove the player's normal top level permissions group to
 					// account for negated permission nodes.
+					// If the player is not in any of the configured groups,
+					// he's an admin. Don't change permissions in that case.
+					boolean groupChanged = false;
 					for (String group : bPermsModGroups) {
 						if (ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
 							groupMap.set(player.getName(), group);
 							ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
+							groupChanged = true;
 						}
 					}
-
-					ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
+					if (groupChanged) {
+						ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
+					}
 				}
 			}
 			if (!modmode.contains(player.getName())) {
