@@ -88,6 +88,49 @@ public class ModMode extends JavaPlugin {
 	protected TagAPI tagapi;
 
 	/**
+	 * Load the configuration.
+	 */
+	public void loadConfiguration() {
+		reloadConfig();
+
+		vanished = new TreeSet<String>(getConfig().getStringList("vanished"));
+		modmode = getConfig().getStringList("modmode");
+		allowFlight = getConfig().getBoolean("allow.flight", true);
+		usingbperms = getConfig().getBoolean("bperms.enabled", false);
+		bPermsModGroups = getConfig().getStringList("bperms.modgroup");
+
+		if (bPermsModGroups.isEmpty()) {
+			bPermsModGroups.add("Moderators");
+		}
+
+		groupMap = getConfig().getConfigurationSection("groupmap");
+		if (groupMap == null) {
+			getConfig().createSection("groupmap");
+		}
+
+		bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
+		debugPlayerData = getConfig().getBoolean("debug.playerdata");
+
+		beforeActivationCommands = getConfig().getStringList("commands.activate.before");
+		afterActivationCommands = getConfig().getStringList("commands.activate.after");
+		beforeDeactivationCommands = getConfig().getStringList("commands.deactivate.before");
+		afterDeactivationCommands = getConfig().getStringList("commands.deactivate.after");
+	}
+
+	/**
+	 * Save the configuration.
+	 */
+	public void saveConfiguration() {
+		getConfig().set("vanished", new ArrayList<String>(vanished));
+		getConfig().set("modmode", modmode);
+		getConfig().set("allow.flight", allowFlight);
+		getConfig().set("bperms.enabled", usingbperms);
+		getConfig().set("bperms.modgroup", bPermsModGroups);
+		getConfig().set("bperms.modmodegroup", bPermsModModeGroup);
+		saveConfig();
+	}
+
+	/**
 	 * Return true if the player is currently vanished.
 	 * 
 	 * @return true if the player is currently vanished.
@@ -374,7 +417,7 @@ public class ModMode extends JavaPlugin {
 		w.refreshChunk(c.getX(), c.getZ());
 
 		restoreFlight(player, enabled);
-		saveConfig();
+		saveConfiguration();
 
 		if (enabled) {
 			runCommands(player, afterActivationCommands);
@@ -397,7 +440,7 @@ public class ModMode extends JavaPlugin {
 	public void onEnable() {
 		// Save sane defaults when config.yml is deleted.
 		saveDefaultConfig();
-		reloadConfig();
+		loadConfiguration();
 
 		vanish = (VanishPlugin) getServer().getPluginManager().getPlugin("VanishNoPacket");
 		if (vanish == null) {
@@ -405,8 +448,7 @@ public class ModMode extends JavaPlugin {
 			getPluginLoader().disablePlugin(this);
 			return;
 		} else {
-			// Make sure that VanishNoPacket is enabled. Spigot doesn't seem
-			// to treat harddepend as mandating a load order.
+			// Make sure that VanishNoPacket is enabled.
 			getPluginLoader().enablePlugin(vanish);
 
 			// Intercept the /vanish command and handle it here.
@@ -426,30 +468,6 @@ public class ModMode extends JavaPlugin {
 			getLogger().info("http://dev.bukkit.org/server-mods/tag/ ");
 		}
 
-		getServer().getPluginManager().registerEvents(listener, this);
-		vanished = new TreeSet<String>(getConfig().getStringList("vanished"));
-		modmode = getConfig().getStringList("modmode");
-		allowFlight = getConfig().getBoolean("allow.flight", true);
-		usingbperms = getConfig().getBoolean("bperms.enabled", false);
-		bPermsModGroups = getConfig().getStringList("bperms.modgroup");
-
-		if (bPermsModGroups.isEmpty()) {
-			bPermsModGroups.add("Moderators");
-		}
-
-		groupMap = getConfig().getConfigurationSection("groupmap");
-		if (groupMap == null) {
-			getConfig().createSection("groupmap");
-		}
-
-		bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
-		debugPlayerData = getConfig().getBoolean("debug.playerdata");
-
-		beforeActivationCommands = getConfig().getStringList("commands.activate.before");
-		afterActivationCommands = getConfig().getStringList("commands.activate.after");
-		beforeDeactivationCommands = getConfig().getStringList("commands.deactivate.before");
-		afterDeactivationCommands = getConfig().getStringList("commands.deactivate.after");
-
 		if (usingbperms) {
 			de.bananaco.bpermissions.imp.Permissions bPermsPlugin = null;
 
@@ -460,19 +478,16 @@ public class ModMode extends JavaPlugin {
 				}
 				getLogger().log(Level.INFO, "bperms turned on, but plugin could not be loaded.");
 				getPluginLoader().disablePlugin(this);
+				return;
 			}
 		}
-	}
+
+		getServer().getPluginManager().registerEvents(listener, this);
+	} // onEnable
 
 	@Override
 	public void onDisable() {
-		getConfig().set("vanished", new ArrayList<String>(vanished));
-		getConfig().set("modmode", modmode);
-		getConfig().set("allow.flight", allowFlight);
-		getConfig().set("bperms.enabled", usingbperms);
-		getConfig().set("bperms.modgroup", bPermsModGroups);
-		getConfig().set("bperms.modmodegroup", bPermsModModeGroup);
-		saveConfig();
+		saveConfiguration();
 	}
 
 	@Override
@@ -505,16 +520,41 @@ public class ModMode extends JavaPlugin {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already visible.");
 			}
 		} else if (command.getName().equalsIgnoreCase("modmode")) {
-			if (modmode.remove(player.getName())) {
-				toggleModMode(player, false);
-			} else {
-				modmode.add(player.getName());
-				toggleModMode(player, true);
+			if (args.length == 0) {
+				if (modmode.remove(player.getName())) {
+					toggleModMode(player, false);
+				} else {
+					modmode.add(player.getName());
+					toggleModMode(player, true);
+				}
+				return true;
+
+			} else if (args.length == 1) {
+				// Permissions check on /modmode admin commands.
+				if (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload")) {
+					if (!player.hasPermission(Permissions.ADMIN)) {
+						player.sendMessage(ChatColor.RED + "You don't have permission to use /modmode admin commands.");
+						return true;
+					}
+				}
+
+				if (args[0].equalsIgnoreCase("save")) {
+					saveConfiguration();
+					player.sendMessage(ChatColor.GOLD + "ModMode configuration saved.");
+					return true;
+				} else if (args[0].equalsIgnoreCase("reload")) {
+					loadConfiguration();
+					player.sendMessage(ChatColor.GOLD + "ModMode configuration reloaded.");
+					return true;
+				}
 			}
+
+			// Fall through case for unrecognised arguments to /modmode.
+			player.sendMessage(ChatColor.RED + "Usage: /modmode [save | reload]");
 		}
 
 		return true;
-	}
+	} // onCommand
 
 	/**
 	 * Run all of the commands in the List of Strings.

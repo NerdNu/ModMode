@@ -31,3 +31,6 @@ permissions:
         description: Allow the player to see the vanish list
   modmode.toggle:
     description: Allow the player to enter ModMode
+
+  modmode.admin:
+    description: Allow use of /modmode save and /modmode reload admin commands.
