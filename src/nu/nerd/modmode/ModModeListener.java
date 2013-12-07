@@ -44,23 +44,51 @@ public class ModModeListener implements Listener {
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
-		boolean inModMode = plugin.isModMode(player);
 
-		// Restore vanish state for mods and admins who left vanished.
-		if (plugin.willBeVanishedInModMode(player) &&
-			(inModMode || player.hasPermission(Permissions.VANISH))) {
-			plugin.enableVanish(player);
-			event.setJoinMessage(null);
+		// Is the player a moderator or admin?
+		if (player.hasPermission(Permissions.TOGGLE)) {
+			boolean inModMode = plugin.isModMode(player);
+			boolean vanished = false;
+
+			if (plugin.isAdmin(player)) {
+				// Admins log in vanished if they logged out vanished, or if
+				// they logged out in ModMode (vanished or not).
+				vanished = plugin.getPersistentVanishState(player) || inModMode;
+			} else {
+				// Moderators log in vanished if they must have logged out in
+				// ModMode while vanished.
+				vanished = inModMode && plugin.getPersistentVanishState(player);
+			}
+
+			if (vanished) {
+				plugin.setVanish(player, true);
+				event.setJoinMessage(null);
+			}
+			plugin.restoreFlight(player, inModMode);
 		}
-		plugin.restoreFlight(player, inModMode);
 		plugin.updateAllPlayersSeeing();
 	}
 
-	@EventHandler
+	/**
+	 * In order for plugin.isVanished() to return the correct result, this event
+	 * must be processed before VanishNoPacket handles it, hence the low
+	 * priority.
+	 */
+	@EventHandler(priority = EventPriority.LOWEST)
 	public void onPlayerQuit(PlayerQuitEvent event) {
+		Player player = event.getPlayer();
+
 		// Suppress quit messages when vanished.
-		if (plugin.isVanished(event.getPlayer())) {
+		if (plugin.isVanished(player)) {
 			event.setQuitMessage(null);
+		}
+
+		// For staff who can use ModMode, store the vanish state of Moderators
+		// in ModMode and Admins who are not in ModMode between logins.
+		if (player.hasPermission(Permissions.TOGGLE) &&
+			plugin.isModMode(player) != plugin.isAdmin(player)) {
+			plugin.setPersistentVanishState(player);
+			plugin.saveConfiguration();
 		}
 	}
 

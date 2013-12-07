@@ -34,8 +34,18 @@ public class ModMode extends JavaPlugin {
 	private final ModModeListener listener = new ModModeListener(this);
 
 	/**
-	 * This is the set of moderators who should be re-vanished when they enter
-	 * ModMode. It is NOT the set of currently vanished players.
+	 * For Moderators in ModMode, this is persistent storage for their vanish
+	 * state when they log out. Moderators out of ModMode are assumed to always
+	 * be visible.
+	 * 
+	 * For Admins who can vanish without transitioning into ModMode, this
+	 * variable stores their vanish state between logins only when not in
+	 * ModMode. If they log out in ModMode, they are re-vanished automatically
+	 * when they log in. When they leave ModMode, their vanish state is set
+	 * according to membership in this set.
+	 * 
+	 * This is NOT the set of currently vanished players, which is instead
+	 * maintained by the VanishNoPacket plugin.
 	 */
 	public TreeSet<String> vanished;
 	public List<String> modmode;
@@ -140,28 +150,81 @@ public class ModMode extends JavaPlugin {
 	}
 
 	/**
-	 * Return true if the player should be vanished when he has permission (is
-	 * an admin or is in ModMode).
+	 * Return the persistent (cross login) vanish state.
+	 * 
+	 * This means different things depending on whether the player could
+	 * normally vanish without being in ModMode. See the doc comment for
+	 * {@link #vanished}.
 	 * 
 	 * @param player the player.
-	 * @return true if should be vanished when next in ModMode, or is an admin.
+	 * @return true if vanished.
 	 */
-	public boolean willBeVanishedInModMode(Player player) {
+	public boolean getPersistentVanishState(Player player) {
 		return vanished.contains(player.getName());
 	}
 
+	/**
+	 * Save the current vanish state of the player as his persistent vanish
+	 * state.
+	 * 
+	 * This means different things depending on whether the player could
+	 * normally vanish without being in ModMode. See the doc comment for
+	 * {@link #vanished}.
+	 */
+	public void setPersistentVanishState(Player player) {
+		if (vanish.getManager().isVanished(player)) {
+			vanished.add(player.getName());
+		} else {
+			vanished.remove(player.getName());
+		}
+	}
+
+	/**
+	 * Return true if the player is currently in ModMode.
+	 * 
+	 * @param player the Player.
+	 * @return true if the player is currently in ModMode.
+	 */
 	public boolean isModMode(Player player) {
 		return modmode.contains(player.getName());
 	}
 
-	public void enableVanish(Player player) {
-		if (!vanish.getManager().isVanished(player)) {
-			vanish.getManager().toggleVanish(player);
+	/**
+	 * Return true if the player has Admin permissions.
+	 * 
+	 * That is, the player has permissions in excess of those of the ModMode
+	 * permission group. This is a different concept from Permissions.ADMIN,
+	 * which merely signifies that the player can administer this plugin.
+	 * 
+	 * @return true for Admins, false for Moderators and default players.
+	 */
+	public boolean isAdmin(Player player) {
+		if (!player.hasPermission(Permissions.TOGGLE)) {
+			// default player.
+			return false;
+		}
+
+		String moderatorGroup = bPermsModGroups.get(0);
+		World world = Bukkit.getWorlds().get(0);
+
+		// If the player is currently in ModMode, check the groupmap for the
+		// usual group of the player.
+		if (isModMode(player)) {
+			return !moderatorGroup.equals(groupMap.getString(player.getName()));
+		} else {
+			// Not in ModMode. Check for Moderator group.
+			return !ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), moderatorGroup);
 		}
 	}
 
-	public void disableVanish(Player player) {
-		if (vanish.getManager().isVanished(player)) {
+	/**
+	 * Set the vanish state of the player.
+	 * 
+	 * @param player the Player.
+	 * @param vanished true if he should be vanished.
+	 */
+	public void setVanish(Player player, boolean vanished) {
+		if (vanish.getManager().isVanished(player) != vanished) {
 			vanish.getManager().toggleVanish(player);
 		}
 	}
@@ -361,8 +424,14 @@ public class ModMode extends JavaPlugin {
 		}
 
 		if (!enabled) {
-			disableVanish(player);
-			updateAllPlayersSeeing();
+			// When leaving ModMode, Admins return to their persistent vanish
+			// state; Moderators become visible
+			if (isAdmin(player)) {
+				setVanish(player, getPersistentVanishState(player));
+			} else {
+				setVanish(player, false);
+			}
+
 			if (usingbperms) {
 				List<org.bukkit.World> worlds = getServer().getWorlds();
 				for (org.bukkit.World world : worlds) {
@@ -397,12 +466,18 @@ public class ModMode extends JavaPlugin {
 			if (!modmode.contains(player.getName())) {
 				modmode.add(player.getName());
 			}
-			if (willBeVanishedInModMode(player)) {
-				enableVanish(player);
+
+			// Always vanish when entering ModMode. Record the old vanish state
+			// for admins only.
+			if (isAdmin(player)) {
+				setPersistentVanishState(player);
 			}
-			updateAllPlayersSeeing();
+			setVanish(player, true);
 			player.sendMessage(ChatColor.RED + "You are now in ModMode!");
 		}
+
+		// Update who sees whom AFTER permissions and vanish state changes.
+		updateAllPlayersSeeing();
 
 		// Save player data for the old ModMode state and load for the new.
 		savePlayerData(player, !enabled);
@@ -509,13 +584,11 @@ public class ModMode extends JavaPlugin {
 			} else if (isVanished(player)) {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
 			} else {
-				vanished.add(player.getName());
-				enableVanish(player);
+				setVanish(player, true);
 			}
 		} else if (command.getName().equalsIgnoreCase("unvanish")) {
 			if (isVanished(player)) {
-				vanished.remove(player.getName());
-				disableVanish(player);
+				setVanish(player, false);
 			} else {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already visible.");
 			}
