@@ -24,6 +24,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.kitteh.tag.TagAPI;
+import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 
 import de.bananaco.bpermissions.api.ApiLayer;
@@ -475,6 +476,12 @@ public class ModMode extends JavaPlugin {
 			setVanish(player, true);
 			player.sendMessage(ChatColor.RED + "You are now in ModMode!");
 		}
+
+		// Update the permissions that VanishNoPacket caches to match the new
+		// permissions of the player. This is highly dependent on this API
+		// method not doing anything more than what it currently does:
+		// to simply remove the cached VanishUser (permissions) object.
+		VanishPerms.userQuit(player);
 
 		// Update who sees whom AFTER permissions and vanish state changes.
 		updateAllPlayersSeeing();
