@@ -15,9 +15,8 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.kitteh.tag.PlayerReceiveNameTagEvent;
-
 import de.diddiz.LogBlock.events.BlockChangePreLogEvent;
+import org.kitteh.tag.AsyncPlayerReceiveNameTagEvent;
 
 public class ModModeListener implements Listener {
 	final ModMode plugin;
@@ -35,7 +34,7 @@ public class ModModeListener implements Listener {
 	}
 
 	@EventHandler(priority = EventPriority.LOWEST)
-	public void onNameTag(PlayerReceiveNameTagEvent event) {
+	public void onNameTag(AsyncPlayerReceiveNameTagEvent event) {
 		if (plugin.isModMode(event.getNamedPlayer())) {
 			event.setTag(ChatColor.GREEN + event.getNamedPlayer().getName() + ChatColor.WHITE);
 		}
