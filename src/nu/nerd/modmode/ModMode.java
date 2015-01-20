@@ -161,7 +161,7 @@ public class ModMode extends JavaPlugin {
 	 * @return true if vanished.
 	 */
 	public boolean getPersistentVanishState(Player player) {
-		return vanished.contains(player.getName());
+		return vanished.contains(player.getUniqueId().toString());
 	}
 
 	/**
@@ -174,9 +174,9 @@ public class ModMode extends JavaPlugin {
 	 */
 	public void setPersistentVanishState(Player player) {
 		if (vanish.getManager().isVanished(player)) {
-			vanished.add(player.getName());
+			vanished.add(player.getUniqueId().toString());
 		} else {
-			vanished.remove(player.getName());
+			vanished.remove(player.getUniqueId().toString());
 		}
 	}
 
@@ -211,7 +211,7 @@ public class ModMode extends JavaPlugin {
 		// If the player is currently in ModMode, check the groupmap for the
 		// usual group of the player.
 		if (isModMode(player)) {
-			return !moderatorGroup.equals(groupMap.getString(player.getName()));
+			return !moderatorGroup.equals(groupMap.getString(player.getUniqueId().toString()));
 		} else {
 			// Not in ModMode. Check for Moderator group.
 			return !ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), moderatorGroup);
@@ -279,7 +279,7 @@ public class ModMode extends JavaPlugin {
 		File playersDir = new File(getDataFolder(), "players");
 		playersDir.mkdirs();
 
-		String fileName = player.getName() + ((isModMode) ? "_modmode" : "_normal") + ".yml";
+		String fileName = player.getUniqueId().toString() + ((isModMode) ? "_modmode" : "_normal") + ".yml";
 		return new File(playersDir, fileName);
 	}
 
@@ -302,7 +302,7 @@ public class ModMode extends JavaPlugin {
 			backup1.renameTo(backup2);
 			stateFile.renameTo(backup1);
 		} catch (Exception ex) {
-			getLogger().warning(ex.getClass().getName() + " raised saving state file backups for " + player.getName() + ".");
+			getLogger().warning(ex.getClass().getName() + " raised saving state file backups for " + player.getName() + " (" + player.getUniqueId().toString() + ").");
 		}
 
 		YamlConfiguration config = new YamlConfiguration();
@@ -335,7 +335,7 @@ public class ModMode extends JavaPlugin {
 		try {
 			config.save(stateFile);
 		} catch (Exception exception) {
-			getLogger().warning("Failed to save player data for " + player.getName());
+			getLogger().warning("Failed to save player data for " + player.getName() + "(" + player.getUniqueId().toString() + ")");
 		}
 	}
 
@@ -413,7 +413,7 @@ public class ModMode extends JavaPlugin {
 				}
 			}
 		} catch (Exception ex) {
-			getLogger().warning("Failed to load player data for " + player.getName());
+			getLogger().warning("Failed to load player data for " + player.getName() + "(" + player.getUniqueId().toString() + ")");
 		}
 	}
 
@@ -440,7 +440,7 @@ public class ModMode extends JavaPlugin {
 
 					// Players leaving ModMode are assumed to be mods if not
 					// otherwise specified.
-					String group = groupMap.getString(player.getName(), bPermsModGroups.get(0));
+					String group = groupMap.getString(player.getUniqueId().toString(), bPermsModGroups.get(0));
 					if (!ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
 						ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
 					}
@@ -456,7 +456,7 @@ public class ModMode extends JavaPlugin {
 					// account for negated permission nodes.
 					for (String group : bPermsModGroups) {
 						if (ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
-							groupMap.set(player.getName(), group);
+							groupMap.set(player.getUniqueId().toString(), group);
 							ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
 						}
 					}
