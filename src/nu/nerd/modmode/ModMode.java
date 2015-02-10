@@ -33,6 +33,8 @@ import de.bananaco.bpermissions.api.util.CalculableType;
 public class ModMode extends JavaPlugin {
 
 	private final ModModeListener listener = new ModModeListener(this);
+	private TagAPIListener tagAPIListener;
+	private LogBlockListener logBlockListener;
 
 	/**
 	 * For Moderators in ModMode, this is persistent storage for their vanish
@@ -187,7 +189,7 @@ public class ModMode extends JavaPlugin {
 	 * @return true if the player is currently in ModMode.
 	 */
 	public boolean isModMode(Player player) {
-		return modmode.contains(player.getName());
+		return modmode.contains(player.getUniqueId().toString());
 	}
 
 	/**
@@ -464,8 +466,8 @@ public class ModMode extends JavaPlugin {
 					ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
 				}
 			}
-			if (!modmode.contains(player.getName())) {
-				modmode.add(player.getName());
+			if (!modmode.contains(player.getUniqueId().toString())) {
+				modmode.add(player.getUniqueId().toString());
 			}
 
 			// Always vanish when entering ModMode. Record the old vanish state
@@ -545,9 +547,17 @@ public class ModMode extends JavaPlugin {
 			getPluginLoader().enablePlugin(logBlock);
 		}
 
+		if (!getServer().getPluginManager().isPluginEnabled("LogBlock")) {
+			getLogger().info("LogBlock integration is disabled. LogBlock not loaded.");
+		} else {
+			this.logBlockListener = new LogBlockListener(this);
+		}
+
 		if (!getServer().getPluginManager().isPluginEnabled("TagAPI")) {
 			getLogger().info("TagAPI is required for coloured names while in ModMode.");
 			getLogger().info("http://dev.bukkit.org/server-mods/tag/ ");
+		} else {
+			this.tagAPIListener = new TagAPIListener(this);
 		}
 
 		if (usingbperms) {
@@ -565,6 +575,10 @@ public class ModMode extends JavaPlugin {
 		}
 
 		getServer().getPluginManager().registerEvents(listener, this);
+		if (this.logBlockListener != null)
+			getServer().getPluginManager().registerEvents(logBlockListener, this);
+		if (this.tagAPIListener != null)
+			getServer().getPluginManager().registerEvents(tagAPIListener, this);
 	} // onEnable
 
 	@Override
@@ -601,10 +615,10 @@ public class ModMode extends JavaPlugin {
 			}
 		} else if (command.getName().equalsIgnoreCase("modmode")) {
 			if (args.length == 0) {
-				if (modmode.remove(player.getName())) {
+				if (modmode.remove(player.getUniqueId().toString())) {
 					toggleModMode(player, false);
 				} else {
-					modmode.add(player.getName());
+					modmode.add(player.getUniqueId().toString());
 					toggleModMode(player, true);
 				}
 				return true;

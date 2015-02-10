@@ -1,6 +1,5 @@
 package nu.nerd.modmode;
 
-import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,29 +14,12 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import de.diddiz.LogBlock.events.BlockChangePreLogEvent;
-import org.kitteh.tag.AsyncPlayerReceiveNameTagEvent;
 
 public class ModModeListener implements Listener {
 	final ModMode plugin;
 
 	ModModeListener(ModMode instance) {
 		plugin = instance;
-	}
-
-	@EventHandler
-	public void onLogBlockPreLogEvent(BlockChangePreLogEvent event) {
-		Player p = plugin.getServer().getPlayerExact(event.getOwner());
-		if (p != null && plugin.isModMode(p)) {
-			event.setOwner(plugin.getCleanModModeName(p));
-		}
-	}
-
-	@EventHandler(priority = EventPriority.LOWEST)
-	public void onNameTag(AsyncPlayerReceiveNameTagEvent event) {
-		if (plugin.isModMode(event.getNamedPlayer())) {
-			event.setTag(ChatColor.GREEN + event.getNamedPlayer().getName() + ChatColor.WHITE);
-		}
 	}
 
 	@EventHandler

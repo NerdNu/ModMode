@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>nu.nerd</groupId>
     <artifactId>ModMode</artifactId>
-    <version>3.2</version>
+    <version>3.3</version>
     <packaging>jar</packaging>
     <name>ModMode</name>
     <properties>
@@ -130,7 +130,7 @@
                         <archive>
                             <addMavenDescriptor>false</addMavenDescriptor>
                         </archive>
-                        <finalName>ModMode</finalName>
+                        <finalName>ModMode-${project.version}</finalName>
                     </configuration>
                 </plugin>
                 <plugin>
