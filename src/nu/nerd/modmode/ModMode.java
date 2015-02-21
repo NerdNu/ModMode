@@ -30,6 +30,7 @@ import org.kitteh.vanish.VanishPlugin;
 import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -71,7 +72,9 @@ public class ModMode extends JavaPlugin {
 	 * ModMode, e.g. Moderators, PAdmins, SAdmins, etc. These must be
 	 * mutually-exclusive; you can't be a Moderator and a PAdmin.
 	 */
+	public String bPermsModGroup;
 	public String bPermsModModeGroup;
+	public Set<String> bPermsKeepGroups;
 	public Set<String> bPermsWorlds;
 
 	/**
@@ -117,6 +120,7 @@ public class ModMode extends JavaPlugin {
 		joinedVanished = new HashMap<String, String>();
 		allowFlight = getConfig().getBoolean("allow.flight", true);
 		usingbperms = getConfig().getBoolean("bperms.enabled", false);
+		bPermsKeepGroups = new HashSet<String>(getConfig().getStringList("bperms.keepgroups"));
 		bPermsWorlds = new HashSet<String>(getConfig().getStringList("bperms.worlds"));
 
 		if (bPermsWorlds.isEmpty()) {
@@ -128,6 +132,7 @@ public class ModMode extends JavaPlugin {
 			getConfig().createSection("groupmap");
 		}
 
+		bPermsModGroup = getConfig().getString("bperms.modgroup", "moderators");
 		bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
 		debugPlayerData = getConfig().getBoolean("debug.playerdata");
 
@@ -145,8 +150,10 @@ public class ModMode extends JavaPlugin {
 		getConfig().set("modmode", modmode.toArray());
 		getConfig().set("allow.flight", allowFlight);
 		getConfig().set("bperms.enabled", usingbperms);
+		getConfig().set("bperms.keepgroups", bPermsKeepGroups.toArray());
 		getConfig().set("bperms.worlds", bPermsWorlds.toArray());
 		getConfig().set("bperms.modmodegroup", bPermsModModeGroup);
+		getConfig().set("bperms.modgroup", bPermsModGroup);
 		saveConfig();
 	}
 
@@ -428,6 +435,11 @@ public class ModMode extends JavaPlugin {
 							ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
 						}
 						ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
+
+						// If no groups, re-add moderator group
+						if (ApiLayer.getGroups(world.getName(), CalculableType.USER, player.getName()).length == 0) {
+							ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModGroup);
+						}
 					}
 				}
 			}
@@ -459,7 +471,9 @@ public class ModMode extends JavaPlugin {
 						groups.remove(bPermsModModeGroup);
 						groupMap.set(player.getUniqueId().toString() + "." + world.getName(), groups);
 						for (String group : groups) {
-							ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
+							if (!containsIgnoreCase(bPermsKeepGroups, group)) {
+								ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
+							}
 						}
 						ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
 					}
@@ -671,5 +685,15 @@ public class ModMode extends JavaPlugin {
 				getLogger().severe("Command \"" + command + "\" raised " + ex.getClass().getName());
 			}
 		}
+	}
+
+	public static boolean containsIgnoreCase(Collection<String> targetList, String search) {
+		for (String target : targetList) {
+			if (target.equalsIgnoreCase(search)) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
