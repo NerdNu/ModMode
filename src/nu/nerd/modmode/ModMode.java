@@ -29,6 +29,11 @@ import org.kitteh.vanish.VanishPlugin;
 
 import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class ModMode extends JavaPlugin {
 
@@ -50,8 +55,9 @@ public class ModMode extends JavaPlugin {
 	 * This is NOT the set of currently vanished players, which is instead
 	 * maintained by the VanishNoPacket plugin.
 	 */
-	public TreeSet<String> vanished;
-	public List<String> modmode;
+	public Set<String> vanished;
+	public Set<String> modmode;
+	public Map<String, String> joinedVanished;
 	public boolean allowFlight;
 	public boolean usingbperms;
 
@@ -65,8 +71,8 @@ public class ModMode extends JavaPlugin {
 	 * ModMode, e.g. Moderators, PAdmins, SAdmins, etc. These must be
 	 * mutually-exclusive; you can't be a Moderator and a PAdmin.
 	 */
-	public List<String> bPermsModGroups;
 	public String bPermsModModeGroup;
+	public Set<String> bPermsWorlds;
 
 	/**
 	 * When entering ModMode, a staff member in any of bPermsModGroups (e.g.
@@ -107,13 +113,14 @@ public class ModMode extends JavaPlugin {
 		reloadConfig();
 
 		vanished = new TreeSet<String>(getConfig().getStringList("vanished"));
-		modmode = getConfig().getStringList("modmode");
+		modmode = new HashSet<String>(getConfig().getStringList("modmode"));
+		joinedVanished = new HashMap<String, String>();
 		allowFlight = getConfig().getBoolean("allow.flight", true);
 		usingbperms = getConfig().getBoolean("bperms.enabled", false);
-		bPermsModGroups = getConfig().getStringList("bperms.modgroup");
+		bPermsWorlds = new HashSet<String>(getConfig().getStringList("bperms.worlds"));
 
-		if (bPermsModGroups.isEmpty()) {
-			bPermsModGroups.add("Moderators");
+		if (bPermsWorlds.isEmpty()) {
+			bPermsWorlds.add("world");
 		}
 
 		groupMap = getConfig().getConfigurationSection("groupmap");
@@ -135,10 +142,10 @@ public class ModMode extends JavaPlugin {
 	 */
 	public void saveConfiguration() {
 		getConfig().set("vanished", new ArrayList<String>(vanished));
-		getConfig().set("modmode", modmode);
+		getConfig().set("modmode", modmode.toArray());
 		getConfig().set("allow.flight", allowFlight);
 		getConfig().set("bperms.enabled", usingbperms);
-		getConfig().set("bperms.modgroup", bPermsModGroups);
+		getConfig().set("bperms.worlds", bPermsWorlds.toArray());
 		getConfig().set("bperms.modmodegroup", bPermsModModeGroup);
 		saveConfig();
 	}
@@ -196,28 +203,13 @@ public class ModMode extends JavaPlugin {
 	 * Return true if the player has Admin permissions.
 	 * 
 	 * That is, the player has permissions in excess of those of the ModMode
-	 * permission group. This is a different concept from Permissions.ADMIN,
+	 * permission group. This is a different concept from Permissions.OP,
 	 * which merely signifies that the player can administer this plugin.
 	 * 
 	 * @return true for Admins, false for Moderators and default players.
 	 */
 	public boolean isAdmin(Player player) {
-		if (!player.hasPermission(Permissions.TOGGLE)) {
-			// default player.
-			return false;
-		}
-
-		String moderatorGroup = bPermsModGroups.get(0);
-		World world = Bukkit.getWorlds().get(0);
-
-		// If the player is currently in ModMode, check the groupmap for the
-		// usual group of the player.
-		if (isModMode(player)) {
-			return !moderatorGroup.equals(groupMap.getString(player.getUniqueId().toString()));
-		} else {
-			// Not in ModMode. Check for Moderator group.
-			return !ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), moderatorGroup);
-		}
+		return player.hasPermission(Permissions.ADMIN);
 	}
 
 	/**
@@ -427,45 +419,53 @@ public class ModMode extends JavaPlugin {
 		}
 
 		if (!enabled) {
+			if (usingbperms) {
+				List<org.bukkit.World> worlds = getServer().getWorlds();
+				for (org.bukkit.World world : worlds) {
+					if (bPermsWorlds.contains(world.getName())) {
+						List<String> groups = groupMap.getStringList(player.getUniqueId().toString() + "." + world.getName());
+						for (String group : groups) {
+							ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
+						}
+						ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
+					}
+				}
+			}
+
 			// When leaving ModMode, Admins return to their persistent vanish
 			// state; Moderators become visible
 			if (isAdmin(player)) {
 				setVanish(player, getPersistentVanishState(player));
 			} else {
 				setVanish(player, false);
-			}
-
-			if (usingbperms) {
-				List<org.bukkit.World> worlds = getServer().getWorlds();
-				for (org.bukkit.World world : worlds) {
-					ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
-
-					// Players leaving ModMode are assumed to be mods if not
-					// otherwise specified.
-					String group = groupMap.getString(player.getUniqueId().toString(), bPermsModGroups.get(0));
-					if (!ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
-						ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
-					}
+				if (joinedVanished.containsKey(player.getUniqueId().toString())) {
+					getServer().broadcastMessage(joinedVanished.get(player.getUniqueId().toString()));
 				}
 			}
+
+			joinedVanished.remove(player.getUniqueId().toString());
+
 			modmode.remove(player.getName());
 			player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
 		} else {
 			if (usingbperms) {
+				// Clean up old mappings
+				groupMap.set(player.getUniqueId().toString(), null);
+
 				List<org.bukkit.World> worlds = getServer().getWorlds();
 				for (org.bukkit.World world : worlds) {
-					// Remove the player's normal top level permissions group to
-					// account for negated permission nodes.
-					for (String group : bPermsModGroups) {
-						if (ApiLayer.hasGroup(world.getName(), CalculableType.USER, player.getName(), group)) {
-							groupMap.set(player.getUniqueId().toString(), group);
+					if (bPermsWorlds.contains(world.getName().toLowerCase())) {
+						List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, player.getName()));
+						groups.remove(bPermsModModeGroup);
+						groupMap.set(player.getUniqueId().toString() + "." + world.getName(), groups);
+						for (String group : groups) {
 							ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
 						}
+						ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
 					}
-
-					ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
 				}
 			}
+
 			if (!modmode.contains(player.getUniqueId().toString())) {
 				modmode.add(player.getUniqueId().toString());
 			}
@@ -475,6 +475,7 @@ public class ModMode extends JavaPlugin {
 			if (isAdmin(player)) {
 				setPersistentVanishState(player);
 			}
+
 			setVanish(player, true);
 			player.sendMessage(ChatColor.RED + "You are now in ModMode!");
 		}
@@ -624,10 +625,10 @@ public class ModMode extends JavaPlugin {
 				return true;
 
 			} else if (args.length == 1) {
-				// Permissions check on /modmode admin commands.
+				// Permissions check on /modmode op commands.
 				if (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload")) {
-					if (!player.hasPermission(Permissions.ADMIN)) {
-						player.sendMessage(ChatColor.RED + "You don't have permission to use /modmode admin commands.");
+					if (!player.hasPermission(Permissions.OP)) {
+						player.sendMessage(ChatColor.RED + "You don't have permission to use /modmode op commands.");
 						return true;
 					}
 				}

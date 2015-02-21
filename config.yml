@@ -5,8 +5,6 @@ allow:
   flight: true
 bperms:
   enabled: true
-  modgroup:
-  - Moderators
   modmodegroup: ModMode
 groupmap: !!map {}
 debug:

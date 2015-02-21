@@ -43,8 +43,10 @@ public class ModModeListener implements Listener {
 
 			if (vanished) {
 				plugin.setVanish(player, true);
+				plugin.joinedVanished.put(player.getUniqueId().toString(), event.getJoinMessage());
 				event.setJoinMessage(null);
 			}
+
 			plugin.restoreFlight(player, inModMode);
 		}
 		plugin.updateAllPlayersSeeing();
@@ -58,6 +60,8 @@ public class ModModeListener implements Listener {
 	@EventHandler(priority = EventPriority.LOWEST)
 	public void onPlayerQuit(PlayerQuitEvent event) {
 		Player player = event.getPlayer();
+
+		plugin.joinedVanished.remove(player.getUniqueId().toString());
 
 		// Suppress quit messages when vanished.
 		if (plugin.isVanished(player)) {

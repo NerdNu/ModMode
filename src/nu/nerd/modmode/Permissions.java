@@ -10,4 +10,5 @@ public class Permissions {
 	public static final String SHOWMODS = MODMODE + "showmods";
 	public static final String TOGGLE = MODMODE + "toggle";
 	public static final String ADMIN = MODMODE + "admin";
+	public static final String OP = MODMODE + "op";
 }

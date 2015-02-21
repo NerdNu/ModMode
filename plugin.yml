@@ -32,5 +32,5 @@ permissions:
   modmode.toggle:
     description: Allow the player to enter ModMode
 
-  modmode.admin:
+  modmode.op:
     description: Allow use of /modmode save and /modmode reload admin commands.
