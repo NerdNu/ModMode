@@ -25,6 +25,7 @@ public class ModModeListener implements Listener {
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
+		player.setScoreboard(plugin.scoreboardModMode);
 
 		// Is the player a moderator or admin?
 		if (player.hasPermission(Permissions.TOGGLE)) {
@@ -48,6 +49,15 @@ public class ModModeListener implements Listener {
 			}
 
 			plugin.restoreFlight(player, inModMode);
+
+			if (vanished && !inModMode) {
+				plugin.teamModMode.removePlayer(player);
+				plugin.teamVanished.addPlayer(player);
+			}
+			else if (inModMode) {
+				plugin.teamVanished.removePlayer(player);
+				plugin.teamModMode.addPlayer(player);
+			}
 		}
 		plugin.updateAllPlayersSeeing();
 	}

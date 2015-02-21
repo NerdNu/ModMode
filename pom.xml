@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>nu.nerd</groupId>
     <artifactId>ModMode</artifactId>
-    <version>3.4.2</version>
+    <version>3.5.0</version>
     <packaging>jar</packaging>
     <name>ModMode</name>
     <properties>
@@ -27,7 +27,7 @@
         <dependency>
             <groupId>org.bukkit</groupId>
             <artifactId>bukkit</artifactId>
-            <version>1.7.10-R0.1-SNAPSHOT</version>
+            <version>1.8-R0.1-SNAPSHOT</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
@@ -36,12 +36,6 @@
             <artifactId>bPermissions</artifactId>
             <version>1.0.0</version>
             <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.kitteh</groupId>
-            <artifactId>tagapi</artifactId>
-            <version>3.0.2</version>
-            <type>jar</type>
         </dependency>
         <dependency>
             <groupId>org.kitteh</groupId>
@@ -63,8 +57,8 @@
             <url>http://repo.kitteh.org/content/groups/public</url>
         </repository>
         <repository>
-            <id>repobo-snap</id>
-            <url>http://repo.bukkit.org/content/groups/public</url>
+            <id>spigot-repo</id>
+            <url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
         </repository>
         <repository>
             <id>md_5-releases</id>

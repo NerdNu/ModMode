@@ -23,7 +23,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
-import org.kitteh.tag.TagAPI;
 import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 
@@ -35,12 +34,22 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.ScoreboardManager;
+import org.bukkit.scoreboard.Team;
 
 public class ModMode extends JavaPlugin {
 
 	private final ModModeListener listener = new ModModeListener(this);
-	private TagAPIListener tagAPIListener;
 	private LogBlockListener logBlockListener;
+
+	/**
+	 * Scoreboard API stuff for colored name tags
+	 */
+	public ScoreboardManager scoreboardManager;
+	public Scoreboard scoreboardModMode;
+	public Team teamModMode;
+	public Team teamVanished;
 
 	/**
 	 * For Moderators in ModMode, this is persistent storage for their vanish
@@ -107,7 +116,6 @@ public class ModMode extends JavaPlugin {
 	public List<String> afterDeactivationCommands;
 
 	protected VanishPlugin vanish;
-	protected TagAPI tagapi;
 
 	/**
 	 * Load the configuration.
@@ -228,6 +236,22 @@ public class ModMode extends JavaPlugin {
 	public void setVanish(Player player, boolean vanished) {
 		if (vanish.getManager().isVanished(player) != vanished) {
 			vanish.getManager().toggleVanish(player);
+		}
+	}
+
+	/**
+	 * Update the colored namedtag of the player
+	 * 
+	 * @param player 
+	 */
+	public void updateNametag(Player player) {
+		teamVanished.removePlayer(player);
+		teamModMode.removePlayer(player);
+
+		if (isModMode(player)) {
+			teamModMode.addPlayer(player);
+		} else if (isVanished(player)) {
+			teamVanished.addPlayer(player);
 		}
 	}
 
@@ -455,8 +479,6 @@ public class ModMode extends JavaPlugin {
 				}
 			}
 
-			joinedVanished.remove(player.getUniqueId().toString());
-
 			modmode.remove(player.getName());
 			player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
 		} else {
@@ -500,6 +522,9 @@ public class ModMode extends JavaPlugin {
 		// to simply remove the cached VanishUser (permissions) object.
 		VanishPerms.userQuit(player);
 
+		// Update the nametage for the player
+		updateNametag(player);
+		
 		// Update who sees whom AFTER permissions and vanish state changes.
 		updateAllPlayersSeeing();
 
@@ -568,13 +593,6 @@ public class ModMode extends JavaPlugin {
 			this.logBlockListener = new LogBlockListener(this);
 		}
 
-		if (!getServer().getPluginManager().isPluginEnabled("TagAPI")) {
-			getLogger().info("TagAPI is required for coloured names while in ModMode.");
-			getLogger().info("http://dev.bukkit.org/server-mods/tag/ ");
-		} else {
-			this.tagAPIListener = new TagAPIListener(this);
-		}
-
 		if (usingbperms) {
 			de.bananaco.bpermissions.imp.Permissions bPermsPlugin = null;
 
@@ -592,8 +610,13 @@ public class ModMode extends JavaPlugin {
 		getServer().getPluginManager().registerEvents(listener, this);
 		if (this.logBlockListener != null)
 			getServer().getPluginManager().registerEvents(logBlockListener, this);
-		if (this.tagAPIListener != null)
-			getServer().getPluginManager().registerEvents(tagAPIListener, this);
+
+		this.scoreboardManager = Bukkit.getScoreboardManager();
+		this.scoreboardModMode = this.scoreboardManager.getNewScoreboard();
+		this.teamModMode = this.scoreboardModMode.registerNewTeam("Mod Mode");
+		this.teamModMode.setPrefix(ChatColor.GREEN + "");
+		this.teamVanished = this.scoreboardModMode.registerNewTeam("Vanished");
+		this.teamVanished.setPrefix(ChatColor.BLUE + "");
 	} // onEnable
 
 	@Override
@@ -621,10 +644,16 @@ public class ModMode extends JavaPlugin {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
 			} else {
 				setVanish(player, true);
+
+				// Update the nametage for the player
+				updateNametag(player);
 			}
 		} else if (command.getName().equalsIgnoreCase("unvanish")) {
 			if (isVanished(player)) {
 				setVanish(player, false);
+
+				// Update the nametage for the player
+				updateNametag(player);
 			} else {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already visible.");
 			}
