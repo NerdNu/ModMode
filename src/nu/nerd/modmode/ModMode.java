@@ -55,13 +55,13 @@ public class ModMode extends JavaPlugin {
 	 * For Moderators in ModMode, this is persistent storage for their vanish
 	 * state when they log out. Moderators out of ModMode are assumed to always
 	 * be visible.
-	 * 
+	 *
 	 * For Admins who can vanish without transitioning into ModMode, this
 	 * variable stores their vanish state between logins only when not in
 	 * ModMode. If they log out in ModMode, they are re-vanished automatically
 	 * when they log in. When they leave ModMode, their vanish state is set
 	 * according to membership in this set.
-	 * 
+	 *
 	 * This is NOT the set of currently vanished players, which is instead
 	 * maintained by the VanishNoPacket plugin.
 	 */
@@ -167,7 +167,7 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Return true if the player is currently vanished.
-	 * 
+	 *
 	 * @return true if the player is currently vanished.
 	 */
 	public boolean isVanished(Player player) {
@@ -176,11 +176,11 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Return the persistent (cross login) vanish state.
-	 * 
+	 *
 	 * This means different things depending on whether the player could
 	 * normally vanish without being in ModMode. See the doc comment for
 	 * {@link #vanished}.
-	 * 
+	 *
 	 * @param player the player.
 	 * @return true if vanished.
 	 */
@@ -191,7 +191,7 @@ public class ModMode extends JavaPlugin {
 	/**
 	 * Save the current vanish state of the player as his persistent vanish
 	 * state.
-	 * 
+	 *
 	 * This means different things depending on whether the player could
 	 * normally vanish without being in ModMode. See the doc comment for
 	 * {@link #vanished}.
@@ -206,7 +206,7 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Return true if the player is currently in ModMode.
-	 * 
+	 *
 	 * @param player the Player.
 	 * @return true if the player is currently in ModMode.
 	 */
@@ -216,11 +216,11 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Return true if the player has Admin permissions.
-	 * 
+	 *
 	 * That is, the player has permissions in excess of those of the ModMode
 	 * permission group. This is a different concept from Permissions.OP,
 	 * which merely signifies that the player can administer this plugin.
-	 * 
+	 *
 	 * @return true for Admins, false for Moderators and default players.
 	 */
 	public boolean isAdmin(Player player) {
@@ -229,7 +229,7 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Set the vanish state of the player.
-	 * 
+	 *
 	 * @param player the Player.
 	 * @param vanished true if he should be vanished.
 	 */
@@ -241,8 +241,8 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Update the colored namedtag of the player
-	 * 
-	 * @param player 
+	 *
+	 * @param player
 	 */
 	public void updateNametag(Player player) {
 		teamVanished.removePlayer(player);
@@ -258,7 +258,7 @@ public class ModMode extends JavaPlugin {
 	/**
 	 * Try to coerce VanishNoPacket into showing or hiding players to each other
 	 * based on their current vanish state and permissions.
-	 * 
+	 *
 	 * Just calling resetSeeing() when a moderator toggles ModMode (and hence
 	 * permissions and vanish state) is apparently insufficient.
 	 */
@@ -295,7 +295,7 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Return the File used to store the player's normal or ModMode state.
-	 * 
+	 *
 	 * @param player the player.
 	 * @param isModMode true if the data is for the ModMode state.
 	 * @return the File used to store the player's normal or ModMode state.
@@ -310,7 +310,7 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Save the player's data to a YAML configuration file.
-	 * 
+	 *
 	 * @param player the player.
 	 * @param isModMode true if the saved data is for the ModMode inventory.
 	 */
@@ -344,6 +344,7 @@ public class ModMode extends JavaPlugin {
 		config.set("chestplate", player.getInventory().getChestplate());
 		config.set("leggings", player.getInventory().getLeggings());
 		config.set("boots", player.getInventory().getBoots());
+		config.set("off-hand", player.getInventory().getItemInOffHand());
 		for (PotionEffect potion : player.getActivePotionEffects()) {
 			config.set("potions." + potion.getType().getName(), potion);
 		}
@@ -366,7 +367,7 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Load the player's data from a YAML configuration file.
-	 * 
+	 *
 	 * @param player the player.
 	 * @param isModMode true if the loaded data is for the ModMode inventory.
 	 */
@@ -401,6 +402,7 @@ public class ModMode extends JavaPlugin {
 			player.getInventory().setChestplate(config.getItemStack("chestplate"));
 			player.getInventory().setLeggings(config.getItemStack("leggings"));
 			player.getInventory().setBoots(config.getItemStack("boots"));
+			player.getInventory().setItemInOffHand(config.getItemStack("off-hand"));
 
 			for (PotionEffect potion : player.getActivePotionEffects()) {
 				player.removePotionEffect(potion.getType());
@@ -524,7 +526,7 @@ public class ModMode extends JavaPlugin {
 
 		// Update the nametage for the player
 		updateNametag(player);
-		
+
 		// Update who sees whom AFTER permissions and vanish state changes.
 		updateAllPlayersSeeing();
 
@@ -552,7 +554,7 @@ public class ModMode extends JavaPlugin {
 
 	/**
 	 * Restore flight ability if in ModMode or creative game mode.
-	 * 
+	 *
 	 * @param player the player.
 	 * @param isInModMode true if the player is in ModMode.
 	 */
@@ -631,8 +633,13 @@ public class ModMode extends JavaPlugin {
 			return true;
 		}
 
-		if (!(sender instanceof Player)) {
-			return false;
+		if (command.getName().equalsIgnoreCase("modmode")) {
+			cmdModMode(sender, args);
+			return true;
+		}
+
+		if (!isInGame(sender)) {
+			return true;
 		}
 
 		Player player = (Player) sender;
@@ -657,46 +664,67 @@ public class ModMode extends JavaPlugin {
 			} else {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already visible.");
 			}
-		} else if (command.getName().equalsIgnoreCase("modmode")) {
-			if (args.length == 0) {
-				if (modmode.remove(player.getUniqueId().toString())) {
-					toggleModMode(player, false);
-				} else {
-					modmode.add(player.getUniqueId().toString());
-					toggleModMode(player, true);
-				}
-				return true;
-
-			} else if (args.length == 1) {
-				// Permissions check on /modmode op commands.
-				if (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload")) {
-					if (!player.hasPermission(Permissions.OP)) {
-						player.sendMessage(ChatColor.RED + "You don't have permission to use /modmode op commands.");
-						return true;
-					}
-				}
-
-				if (args[0].equalsIgnoreCase("save")) {
-					saveConfiguration();
-					player.sendMessage(ChatColor.GOLD + "ModMode configuration saved.");
-					return true;
-				} else if (args[0].equalsIgnoreCase("reload")) {
-					loadConfiguration();
-					player.sendMessage(ChatColor.GOLD + "ModMode configuration reloaded.");
-					return true;
-				}
-			}
-
-			// Fall through case for unrecognised arguments to /modmode.
-			player.sendMessage(ChatColor.RED + "Usage: /modmode [save | reload]");
 		}
-
 		return true;
 	} // onCommand
 
 	/**
+	 * Handle /modmode [save|reload] both for players in-game and the console.
+	 *
+	 * @param sender the command sender.
+	 * @param args command arguments.
+	 */
+	protected void cmdModMode(CommandSender sender, String[] args) {
+		if (args.length == 0) {
+			if (!isInGame(sender)) {
+				return;
+			}
+
+			Player player = (Player)sender;
+			if (modmode.remove(player.getUniqueId().toString())) {
+				toggleModMode(player, false);
+			} else {
+				modmode.add(player.getUniqueId().toString());
+				toggleModMode(player, true);
+			}
+		} else if (args.length == 1 && (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload"))) {
+			if (!sender.hasPermission(Permissions.OP)) {
+				sender.sendMessage(ChatColor.RED + "You don't have permission to use /modmode op commands.");
+			    return;
+			}
+
+			if (args[0].equalsIgnoreCase("save")) {
+				saveConfiguration();
+				sender.sendMessage(ChatColor.GOLD + "ModMode configuration saved.");
+			} else if (args[0].equalsIgnoreCase("reload")) {
+				loadConfiguration();
+				sender.sendMessage(ChatColor.GOLD + "ModMode configuration reloaded.");
+			}
+		} else {
+			sender.sendMessage(ChatColor.RED + "Usage: /modmode [save | reload]");
+		}
+	}
+
+	/**
+	 * Return true if the CommandSender is a Player (in-game).
+	 *
+	 * If the command sender is not in game, tell them they need to be in-game
+	 * to use the current command.
+	 *
+	 * @param sender the command sender.
+	 * @return true if the CommandSender is a Player (in-game).
+	 */
+	protected boolean isInGame(CommandSender sender) {
+		boolean inGame = (sender instanceof Player);
+		if (!inGame) {
+			sender.sendMessage("You need to be in-game to use this command.");
+		}
+		return inGame;
+	}
+
+	/**
 	 * Run all of the commands in the List of Strings.
-	 * 
+	 *
 	 * @param player the moderator causing the commands to run.
 	 * @param commands the commands to run.
 	 */
