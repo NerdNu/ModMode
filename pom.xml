@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>nu.nerd</groupId>
     <artifactId>ModMode</artifactId>
-    <version>3.6.0</version>
+    <version>3.7.0</version>
     <packaging>jar</packaging>
     <name>ModMode</name>
     <properties>
@@ -25,9 +25,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.bukkit</groupId>
-            <artifactId>bukkit</artifactId>
-            <version>1.9-SNAPSHOT</version>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>1.9-R0.1-SNAPSHOT</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>

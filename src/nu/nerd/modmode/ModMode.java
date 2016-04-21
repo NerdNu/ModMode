@@ -237,6 +237,7 @@ public class ModMode extends JavaPlugin {
 		if (vanish.getManager().isVanished(player) != vanished) {
 			vanish.getManager().toggleVanish(player);
 		}
+		player.setCollidable(vanished);
 	}
 
 	/**
