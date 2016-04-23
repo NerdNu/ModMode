@@ -28,15 +28,19 @@ import org.kitteh.vanish.VanishPlugin;
 
 import de.bananaco.bpermissions.api.ApiLayer;
 import de.bananaco.bpermissions.api.util.CalculableType;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.scoreboard.Team;
+import org.bukkit.scoreboard.Team.Option;
+import org.bukkit.scoreboard.Team.OptionStatus;
 
 public class ModMode extends JavaPlugin {
 
@@ -50,6 +54,13 @@ public class ModMode extends JavaPlugin {
 	public Scoreboard scoreboardModMode;
 	public Team teamModMode;
 	public Team teamVanished;
+
+	/**
+	 * Players who are not in ModMode or vanished are added to this team so that
+	 * we can control their collidability. LivingEntity.setCollidable() is
+	 * broken: https://hub.spigotmc.org/jira/browse/SPIGOT-2069
+	 */
+	public Team teamDefault;
 
 	/**
 	 * For Moderators in ModMode, this is persistent storage for their vanish
@@ -69,6 +80,12 @@ public class ModMode extends JavaPlugin {
 	public Set<String> modmode;
 	public Map<String, String> joinedVanished;
 	public boolean allowFlight;
+
+	/**
+	 * Allow collisions between unvanished players. Vanished staff are never
+	 * collidable.
+	 */
+	public boolean allowCollisions;
 	public boolean usingbperms;
 
 	/**
@@ -127,6 +144,8 @@ public class ModMode extends JavaPlugin {
 		modmode = new HashSet<String>(getConfig().getStringList("modmode"));
 		joinedVanished = new HashMap<String, String>();
 		allowFlight = getConfig().getBoolean("allow.flight", true);
+		allowCollisions = getConfig().getBoolean("allow.collisions", true);
+		teamDefault.setOption(Option.COLLISION_RULE, allowCollisions ? OptionStatus.ALWAYS : OptionStatus.NEVER);
 		usingbperms = getConfig().getBoolean("bperms.enabled", false);
 		bPermsKeepGroups = new HashSet<String>(getConfig().getStringList("bperms.keepgroups"));
 		bPermsWorlds = new HashSet<String>(getConfig().getStringList("bperms.worlds"));
@@ -157,6 +176,7 @@ public class ModMode extends JavaPlugin {
 		getConfig().set("vanished", new ArrayList<String>(vanished));
 		getConfig().set("modmode", modmode.toArray());
 		getConfig().set("allow.flight", allowFlight);
+		getConfig().set("allow.collisions", allowCollisions);
 		getConfig().set("bperms.enabled", usingbperms);
 		getConfig().set("bperms.keepgroups", bPermsKeepGroups.toArray());
 		getConfig().set("bperms.worlds", bPermsWorlds.toArray());
@@ -237,22 +257,24 @@ public class ModMode extends JavaPlugin {
 		if (vanish.getManager().isVanished(player) != vanished) {
 			vanish.getManager().toggleVanish(player);
 		}
-		player.setCollidable(vanished);
 	}
 
 	/**
-	 * Update the colored namedtag of the player
+	 * Assign the player to the Team that corresponds to its vanish and modmode
+	 * states.
 	 *
-	 * @param player
+	 * The Team controls the name tag prefix (colour) and collision detection
+	 * between players.
+	 *
+	 * @param player the player.
 	 */
-	public void updateNametag(Player player) {
-		teamVanished.removePlayer(player);
-		teamModMode.removePlayer(player);
-
+	public void assignTeam(Player player) {
 		if (isModMode(player)) {
 			teamModMode.addPlayer(player);
 		} else if (isVanished(player)) {
 			teamVanished.addPlayer(player);
+		} else {
+			teamDefault.addPlayer(player);
 		}
 	}
 
@@ -526,7 +548,7 @@ public class ModMode extends JavaPlugin {
 		VanishPerms.userQuit(player);
 
 		// Update the nametage for the player
-		updateNametag(player);
+		assignTeam(player);
 
 		// Update who sees whom AFTER permissions and vanish state changes.
 		updateAllPlayersSeeing();
@@ -565,7 +587,19 @@ public class ModMode extends JavaPlugin {
 
 	@Override
 	public void onEnable() {
-		// Save sane defaults when config.yml is deleted.
+		this.scoreboardManager = Bukkit.getScoreboardManager();
+		this.scoreboardModMode = Bukkit.getScoreboardManager().getMainScoreboard();
+
+		this.teamModMode = getOrCreateTeam("Mod Mode");
+		this.teamModMode.setPrefix(ChatColor.GREEN + "");
+		this.teamModMode.setOption(Option.COLLISION_RULE, OptionStatus.NEVER);
+
+		this.teamVanished = getOrCreateTeam("Vanished");
+		this.teamVanished.setPrefix(ChatColor.BLUE + "");
+		this.teamVanished.setOption(Option.COLLISION_RULE, OptionStatus.NEVER);
+
+		this.teamDefault = getOrCreateTeam("Default");
+
 		saveDefaultConfig();
 		loadConfiguration();
 
@@ -613,13 +647,6 @@ public class ModMode extends JavaPlugin {
 		getServer().getPluginManager().registerEvents(listener, this);
 		if (this.logBlockListener != null)
 			getServer().getPluginManager().registerEvents(logBlockListener, this);
-
-		this.scoreboardManager = Bukkit.getScoreboardManager();
-		this.scoreboardModMode = this.scoreboardManager.getNewScoreboard();
-		this.teamModMode = this.scoreboardModMode.registerNewTeam("Mod Mode");
-		this.teamModMode.setPrefix(ChatColor.GREEN + "");
-		this.teamVanished = this.scoreboardModMode.registerNewTeam("Vanished");
-		this.teamVanished.setPrefix(ChatColor.BLUE + "");
 	} // onEnable
 
 	@Override
@@ -654,14 +681,14 @@ public class ModMode extends JavaPlugin {
 				setVanish(player, true);
 
 				// Update the nametage for the player
-				updateNametag(player);
+				assignTeam(player);
 			}
 		} else if (command.getName().equalsIgnoreCase("unvanish")) {
 			if (isVanished(player)) {
 				setVanish(player, false);
 
 				// Update the nametage for the player
-				updateNametag(player);
+				assignTeam(player);
 			} else {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already visible.");
 			}
@@ -753,5 +780,20 @@ public class ModMode extends JavaPlugin {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Look up a Team by name in the Scoreboard, or create a new one with the
+	 * specified name if not found.
+	 *
+	 * @param name the Team name.
+	 * @return the Team with that name.
+	 */
+	protected Team getOrCreateTeam(String name) {
+		Team team = scoreboardModMode.getTeam(name);
+		if (team == null) {
+		    team = scoreboardModMode.registerNewTeam(name);
+		}
+        return team;
 	}
 }

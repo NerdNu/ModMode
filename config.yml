@@ -3,6 +3,7 @@ fullvanished: []
 modmode: []
 allow:
   flight: true
+  collisions: true
 bperms:
   enabled: true
   modmodegroup: ModMode
@@ -18,4 +19,4 @@ commands:
   deactivate:
     before: []
     after: []
-    
+

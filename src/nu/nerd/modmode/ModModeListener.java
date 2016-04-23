@@ -15,6 +15,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import com.google.common.eventbus.AllowConcurrentEvents;
+
 public class ModModeListener implements Listener {
 	final ModMode plugin;
 
@@ -25,13 +27,11 @@ public class ModModeListener implements Listener {
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
-		player.setScoreboard(plugin.scoreboardModMode);
 
 		// Is the player a moderator or admin?
 		if (player.hasPermission(Permissions.TOGGLE)) {
 			boolean inModMode = plugin.isModMode(player);
 			boolean vanished = false;
-
 			if (plugin.isAdmin(player)) {
 				// Admins log in vanished if they logged out vanished, or if
 				// they logged out in ModMode (vanished or not).
@@ -49,16 +49,10 @@ public class ModModeListener implements Listener {
 			}
 
 			plugin.restoreFlight(player, inModMode);
-
-			if (vanished && !inModMode) {
-				plugin.teamModMode.removePlayer(player);
-				plugin.teamVanished.addPlayer(player);
-			}
-			else if (inModMode) {
-				plugin.teamVanished.removePlayer(player);
-				plugin.teamModMode.addPlayer(player);
-			}
 		}
+
+		player.setScoreboard(plugin.scoreboardModMode);
+		plugin.assignTeam(player);
 		plugin.updateAllPlayersSeeing();
 	}
 
