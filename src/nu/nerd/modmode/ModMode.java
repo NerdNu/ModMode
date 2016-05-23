@@ -21,6 +21,7 @@ import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -542,37 +543,9 @@ public class ModMode extends JavaPlugin {
 			setVanish(player, true);
 			player.sendMessage(ChatColor.RED + "You are now in ModMode!");
 		}
-		
-		// If WorldeditRegions is installed, we need to update the wrg.bypass
-		// permission. This works around a caching issue. Reflection is used
-		// so no runtime OR compile time dependencies on WorldeditRegions is
-		// required.
-		try {
-		    Class<?> clazz = Class.forName("com.empcraft.wrg.util.RegionHandler");
-		    
-		    Method method;
-		    method = clazz.getMethod("unregisterPlayer", Player.class);
-	        method.invoke(null, player);
-		    method = clazz.getMethod("refreshPlayer", Player.class);
-		    method.invoke(null, player);
 
-		    //getLogger().info("refreshPlayer() called!"); // ensure we didn't throw something
-		    //boolean flag = player.hasPermission("wrg.bypass"); // Ensure bPerms is working correctly
-		    //getLogger().info("wrg.bypass = " + flag);
-		} catch (ClassNotFoundException e) {
-		    // Ignore this exception. This is normal if the plugin is not loaded
-		} catch (NoSuchMethodException e) {
-		    getLogger().warning(e.getClass().getName() + " Cannot find public static void com.empcraft.wrg.util.RegionHandler.refreshPlayer(final Player player)");
-		} catch (IllegalAccessException e) {
-		    getLogger().warning(e.getClass().getName() + " Could not invoke com.empcraft.wrg.util.RegionHandler.refreshPlayer");
-        } catch (InvocationTargetException e) {
-            getLogger().warning(e.getClass().getName() + " Could not invoke com.empcraft.wrg.util.RegionHandler.refreshPlayer");
-        } catch (Exception e) {
-            // catch-all
-            getLogger().warning(e.toString());
-        }
-		
-		
+		refreshWorldeditRegionsCache(player);
+
 		// Update the permissions that VanishNoPacket caches to match the new
 		// permissions of the player. This is highly dependent on this API
 		// method not doing anything more than what it currently does:
@@ -683,6 +656,10 @@ public class ModMode extends JavaPlugin {
 
 	@Override
 	public void onDisable() {
+		HandlerList.unregisterAll(listener);
+		if (logBlockListener != null) {
+			HandlerList.unregisterAll(logBlockListener);
+		}
 		saveConfiguration();
 	}
 
@@ -827,5 +804,42 @@ public class ModMode extends JavaPlugin {
 		    team = scoreboardModMode.registerNewTeam(name);
 		}
         return team;
+	}
+	
+	/**
+	 * Worldedit Regions tends to cache player permission. This causes
+	 * breakage when a player changes world or their permissions change
+	 * on the fly, especially wrg.bypass
+	 * 
+	 * Reflection is used for now so no runtime OR compile time dependencies
+	 * on WorldeditRegions is required.
+	 * 
+	 * @param player The player to update
+	 */
+	public void refreshWorldeditRegionsCache(Player player) {
+		try {
+			Class<?> clazz = Class.forName("com.empcraft.wrg.util.RegionHandler");
+
+			Method method;
+			method = clazz.getMethod("unregisterPlayer", Player.class);
+			method.invoke(null, player);
+			method = clazz.getMethod("refreshPlayer", Player.class);
+			method.invoke(null, player);
+
+			//getLogger().info("refreshPlayer() called!"); // ensure we didn't throw something
+			//boolean flag = player.hasPermission("wrg.bypass"); // Ensure bPerms is working correctly
+			//getLogger().info("wrg.bypass = " + flag);
+		} catch (ClassNotFoundException e) {
+			// Ignore this exception. This is normal if the plugin is not loaded
+		} catch (NoSuchMethodException e) {
+			getLogger().warning(e.getClass().getName() + " Cannot find public static void com.empcraft.wrg.util.RegionHandler.refreshPlayer(final Player player)");
+		} catch (IllegalAccessException e) {
+			getLogger().warning(e.getClass().getName() + " Could not invoke com.empcraft.wrg.util.RegionHandler.refreshPlayer");
+		} catch (InvocationTargetException e) {
+			getLogger().warning(e.getClass().getName() + " Could not invoke com.empcraft.wrg.util.RegionHandler.refreshPlayer");
+		} catch (Exception e) {
+			// catch-all
+			getLogger().warning(e.toString());
+		}
 	}
 }

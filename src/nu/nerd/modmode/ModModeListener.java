@@ -14,6 +14,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import com.google.common.eventbus.AllowConcurrentEvents;
 
@@ -136,6 +137,19 @@ public class ModModeListener implements Listener {
 
 	@EventHandler(ignoreCancelled = true)
 	public void onPlayerChangeWorld(PlayerChangedWorldEvent e) {
+		
+		final Player player = e.getPlayer();
+		if(player.hasPermission(Permissions.TOGGLE)) {
+			// update the player WorldeditCache after a delay
+			// (It doesn't work with no delay)
+			new BukkitRunnable() {
+				@Override
+				public void run() {
+					plugin.refreshWorldeditRegionsCache(player);
+				}
+			}.runTaskLater(plugin, 10);
+		}
+
 		if (e.getPlayer().getGameMode() == GameMode.CREATIVE)
 			return;
 
