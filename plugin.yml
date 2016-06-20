@@ -7,7 +7,7 @@ website: ${project.url}
 
 main: nu.nerd.modmode.ModMode
 softdepend: [bPermissions, TagAPI, LogBlock]
-depend: [VanishNoPacket]
+depend: [VanishNoPacket, NerdBoard]
 
 commands:
   vanish:

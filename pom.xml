@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>nu.nerd</groupId>
     <artifactId>ModMode</artifactId>
-    <version>3.7.3</version>
+    <version>3.7.4</version>
     <packaging>jar</packaging>
     <name>ModMode</name>
     <properties>
@@ -48,6 +48,11 @@
             <artifactId>logblock</artifactId>
             <version>dev-SNAPSHOT</version>
             <type>jar</type>
+        </dependency>
+        <dependency>
+            <groupId>nu.nerd</groupId>
+            <artifactId>NerdBoard</artifactId>
+            <version>1.0.0</version>
         </dependency>
     </dependencies>
 

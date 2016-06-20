@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.TreeSet;
 import java.util.logging.Level;
 
+import nu.nerd.nerdboard.NerdBoard;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
@@ -53,7 +54,6 @@ public class ModMode extends JavaPlugin {
 	/**
 	 * Scoreboard API stuff for colored name tags
 	 */
-	public ScoreboardManager scoreboardManager;
 	public Scoreboard scoreboardModMode;
 	public Team teamModMode;
 	public Team teamVanished;
@@ -136,6 +136,7 @@ public class ModMode extends JavaPlugin {
 	public List<String> afterDeactivationCommands;
 
 	protected VanishPlugin vanish;
+	protected NerdBoard nerdBoard;
 
 	/**
 	 * Load the configuration.
@@ -273,11 +274,11 @@ public class ModMode extends JavaPlugin {
 	 */
 	public void assignTeam(Player player) {
 		if (isModMode(player)) {
-			teamModMode.addPlayer(player);
+			nerdBoard.addPlayerToTeam(teamModMode, player);
 		} else if (isVanished(player)) {
-			teamVanished.addPlayer(player);
+			nerdBoard.addPlayerToTeam(teamVanished, player);
 		} else {
-			teamDefault.addPlayer(player);
+			nerdBoard.addPlayerToTeam(teamDefault, player);
 		}
 	}
 
@@ -592,8 +593,14 @@ public class ModMode extends JavaPlugin {
 
 	@Override
 	public void onEnable() {
-		this.scoreboardManager = Bukkit.getScoreboardManager();
-		this.scoreboardModMode = Bukkit.getScoreboardManager().getMainScoreboard();
+		nerdBoard = (NerdBoard) getServer().getPluginManager().getPlugin("NerdBoard");
+		if (nerdBoard == null) {
+			getLogger().severe("NerdBoard is required. http://github.com/nerdnu/NerdBoard");
+			getPluginLoader().disablePlugin(this);
+			return;
+		}
+
+		this.scoreboardModMode = nerdBoard.getScoreboard();
 
 		this.teamModMode = getOrCreateTeam("Mod Mode");
 		this.teamModMode.setPrefix(ChatColor.GREEN + "");
@@ -801,7 +808,7 @@ public class ModMode extends JavaPlugin {
 	protected Team getOrCreateTeam(String name) {
 		Team team = scoreboardModMode.getTeam(name);
 		if (team == null) {
-		    team = scoreboardModMode.registerNewTeam(name);
+		    team = nerdBoard.addTeam(name);
 		}
         return team;
 	}
