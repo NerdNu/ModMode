@@ -11,6 +11,7 @@ import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -156,6 +157,16 @@ public class ModModeListener implements Listener {
 		if (plugin.allowFlight) {
 			e.getPlayer().setAllowFlight(plugin.isModMode(e.getPlayer()));
 		}
+	}
+
+	@EventHandler(ignoreCancelled = true)
+	public void onPlayerGameModeChange(final PlayerGameModeChangeEvent event) {
+		// Fix gamemode toggle removing flight
+		new BukkitRunnable() {
+			public void run() {
+				plugin.restoreFlight(event.getPlayer(), plugin.isModMode(event.getPlayer()));
+			}
+		}.runTask(plugin);
 	}
 
 	@EventHandler(ignoreCancelled = true)
