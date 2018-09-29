@@ -25,9 +25,6 @@ final class NerdBoardHook {
      * Constructor.
      *
      * @param nerdBoard the NerdBoard plugin.
-     *
-     * @author bermudalocket
-     * @since 4.0.0
      */
     NerdBoardHook(NerdBoard nerdBoard) {
         _nerdBoard = nerdBoard;
@@ -43,9 +40,6 @@ final class NerdBoardHook {
      * Sets whether or not default players can collide with vanished players.
      *
      * @param state true if the collisions should be allowed.
-     *
-     * @author bermudalocket
-     * @since 4.0.0
      */
     static void setAllowCollisions(boolean state) {
         _allowCollisions = state;
@@ -59,9 +53,6 @@ final class NerdBoardHook {
      *
      * @return true if collisions between default players and vanished players
      *         are allowed.
-     *
-     * @author bermudalocket
-     * @since 4.0.0
      */
     static boolean allowsCollisions() {
         return _allowCollisions;
@@ -77,9 +68,6 @@ final class NerdBoardHook {
      * @param collisions if entity collisions should be enabled for
      *                        players on this team.
      * @return a {@link Team} with the given properties.
-     *
-     * @author bermudalocket
-     * @since 4.0.0
      */
     private static Team configureTeam(String name, ChatColor color, boolean collisions) {
         Team team = getOrCreateTeam(name);
@@ -95,13 +83,9 @@ final class NerdBoardHook {
      * Returns the NerdBoard plugin if found, otherwise null.
      *
      * @return the NerdBoard plugin if found, otherwise null.
-     *
-     * @author bermudalocket
-     * @since 4.0.0
      */
     static NerdBoard getNerdBoard() {
-        Plugin plugin = Bukkit.getServer().getPluginManager()
-                                          .getPlugin("NerdBoard");
+        Plugin plugin = Bukkit.getServer().getPluginManager().getPlugin("NerdBoard");
         if (plugin instanceof NerdBoard) {
             return (NerdBoard) plugin;
         }
@@ -115,9 +99,6 @@ final class NerdBoardHook {
      *
      * @param name the Team name.
      * @return the Team with that name.
-     *
-     * @author bermudalocket
-     * @since 4.0.0
      */
     private static Team getOrCreateTeam(String name) {
         Team team = _scoreboard.getTeam(name);
@@ -136,9 +117,6 @@ final class NerdBoardHook {
      * between players.
      *
      * @param player the player.
-     *
-     * @author bermudalocket
-     * @since 4.0.0
      */
     static void reconcilePlayerWithVanishState(Player player) {
         boolean inModMode = ModMode.PLUGIN.isModMode(player);
@@ -159,9 +137,6 @@ final class NerdBoardHook {
      *
      * @param bool the boolean.
      * @return the translated OptionStatus.
-     *
-     * @author bermudalocket
-     * @since 4.0.0
      */
     private static Team.OptionStatus boolToStatus(boolean bool) {
         return bool ? Team.OptionStatus.ALWAYS : Team.OptionStatus.NEVER;

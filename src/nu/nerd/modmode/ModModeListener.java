@@ -1,5 +1,6 @@
 package nu.nerd.modmode;
 
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,93 +16,122 @@ import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 
+// ------------------------------------------------------------------------
+/**
+ * The plugin's main event-handling class.
+ */
 public class ModModeListener implements Listener {
-	final ModMode plugin;
 
-	ModModeListener(ModMode instance) {
-		plugin = instance;
+	// ------------------------------------------------------------------------
+	/**
+	 * Constructor.
+	 */
+	ModModeListener() {
+		Bukkit.getPluginManager().registerEvents(this, ModMode.PLUGIN);
 	}
 
+	// ------------------------------------------------------------------------
+	/**
+	 * Facilitates the persistence of ModMode state across logins.
+	 */
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
 
 		// Is the player a moderator or admin?
 		if (player.hasPermission(Permissions.TOGGLE)) {
-			boolean inModMode = plugin.isModMode(player);
-			boolean vanished = false;
-			if (plugin.isAdmin(player)) {
+			boolean inModMode = ModMode.PLUGIN.isModMode(player);
+			boolean vanished;
+			if (ModMode.PLUGIN.isAdmin(player)) {
 				// Admins log in vanished if they logged out vanished, or if
 				// they logged out in ModMode (vanished or not).
-				vanished = plugin.getPersistentVanishState(player) || inModMode;
+				vanished = ModMode.PLUGIN.getPersistentVanishState(player) || inModMode;
 			} else {
 				// Moderators log in vanished if they must have logged out in
 				// ModMode while vanished.
-				vanished = inModMode && plugin.getPersistentVanishState(player);
+				vanished = inModMode && ModMode.PLUGIN.getPersistentVanishState(player);
 			}
 
 			if (vanished) {
-				plugin.setVanish(player, true);
-				plugin.joinedVanished.put(player.getUniqueId().toString(), event.getJoinMessage());
+				ModMode.PLUGIN.setVanish(player, true);
+				ModMode.PLUGIN.joinedVanished.put(player.getUniqueId().toString(), event.getJoinMessage());
 				event.setJoinMessage(null);
 			}
 
-			plugin.restoreFlight(player, inModMode);
+			ModMode.PLUGIN.restoreFlight(player, inModMode);
 		}
 
 		NerdBoardHook.reconcilePlayerWithVanishState(player);
-		plugin.updateAllPlayersSeeing();
+		ModMode.PLUGIN.updateAllPlayersSeeing();
 	}
 
+	// ------------------------------------------------------------------------
 	/**
-	 * In order for plugin.isVanished() to return the correct result, this event
-	 * must be processed before VanishNoPacket handles it, hence the low
-	 * priority.
+	 * In order for ModMode.PLUGIN.isVanished() to return the correct result,
+	 * this event must be processed before VanishNoPacket handles it, hence the
+	 * low priority.
 	 */
 	@EventHandler(priority = EventPriority.LOWEST)
 	public void onPlayerQuit(PlayerQuitEvent event) {
 		Player player = event.getPlayer();
 
-		plugin.joinedVanished.remove(player.getUniqueId().toString());
+		ModMode.PLUGIN.joinedVanished.remove(player.getUniqueId().toString());
 
 		// Suppress quit messages when vanished.
-		if (plugin.isVanished(player)) {
+		if (ModMode.PLUGIN.isVanished(player)) {
 			event.setQuitMessage(null);
 		}
 
 		// For staff who can use ModMode, store the vanish state of Moderators
 		// in ModMode and Admins who are not in ModMode between logins.
 		if (player.hasPermission(Permissions.TOGGLE) &&
-			plugin.isModMode(player) != plugin.isAdmin(player)) {
-			plugin.setPersistentVanishState(player);
-			plugin.saveConfiguration();
+			ModMode.PLUGIN.isModMode(player) != ModMode.PLUGIN.isAdmin(player)) {
+			ModMode.PLUGIN.setPersistentVanishState(player);
+			ModMode.PLUGIN.saveConfiguration();
 		}
 	}
 
+	// ------------------------------------------------------------------------
+	/**
+	 * Disallows vanished players from picking up items.
+	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onPlayerPickupItem(PlayerPickupItemEvent event) {
-		if (plugin.isVanished(event.getPlayer()))
+		if (ModMode.PLUGIN.isVanished(event.getPlayer()))
 			event.setCancelled(true);
 	}
 
+	// ------------------------------------------------------------------------
+	/**
+	 * Disallows vanished players and players in ModMode from dropping items.
+	 */
 	@EventHandler
 	public void onPlayerDropItem(PlayerDropItemEvent event) {
-		if (plugin.isVanished(event.getPlayer()) || plugin.isModMode(event.getPlayer()))
+		if (ModMode.PLUGIN.isVanished(event.getPlayer()) || ModMode.PLUGIN.isModMode(event.getPlayer()))
 			event.setCancelled(true);
 	}
 
+	// ------------------------------------------------------------------------
+	/**
+	 * Disallows entities from targeting vanished players and players in
+	 * ModMode, e.g. hostile mobs, parrots.
+	 */
 	@EventHandler
 	public void onEntityTarget(EntityTargetEvent event) {
 		if (!(event.getTarget() instanceof Player))
 			return;
 
 		Player player = (Player) event.getTarget();
-		if (plugin.isModMode(player) || plugin.isVanished(player))
+		if (ModMode.PLUGIN.isModMode(player) || ModMode.PLUGIN.isVanished(player))
 			event.setCancelled(true);
 	}
 
+	// ------------------------------------------------------------------------
+	/**
+	 * Disallows vanished players and players in ModMode from damaging other
+	 * players.
+	 */
 	@EventHandler
 	public void onEntityDamage(EntityDamageEvent event) {
 		// block PVP with a message
@@ -110,11 +140,11 @@ public class ModModeListener implements Listener {
 			if (e.getDamager() instanceof Player && e.getEntity() instanceof Player) {
 				Player damager = (Player) e.getDamager();
 				Player victim = (Player) e.getEntity();
-				if (plugin.isModMode(damager) || plugin.isVanished(damager)) {
+				if (ModMode.PLUGIN.isModMode(damager) || ModMode.PLUGIN.isVanished(damager)) {
 					event.setCancelled(true);
 				}
 				// only show message if they aren't invisible
-				else if (plugin.isModMode(victim) && !plugin.isVanished(victim)) {
+				else if (ModMode.PLUGIN.isModMode(victim) && !ModMode.PLUGIN.isVanished(victim)) {
 					damager.sendMessage("This moderator is in ModMode.");
 					damager.sendMessage("ModMode should only be used for official server business.");
 					damager.sendMessage("Please let an admin know if a moderator is abusing ModMode.");
@@ -125,7 +155,7 @@ public class ModModeListener implements Listener {
 		// block all damage to invisible and modmode players
 		if (event.getEntity() instanceof Player) {
 			Player victim = (Player) event.getEntity();
-			if (plugin.isModMode(victim) || plugin.isVanished(victim)) {
+			if (ModMode.PLUGIN.isModMode(victim) || ModMode.PLUGIN.isVanished(victim)) {
 				// Extinguish view-obscuring fires.
 				victim.setFireTicks(0);
 				event.setCancelled(true);
@@ -133,44 +163,51 @@ public class ModModeListener implements Listener {
 		}
 	}
 
+	// ------------------------------------------------------------------------
+	/**
+	 * Updates the player's WorldeditCache and allow-flight status upon
+	 * changing worlds.
+	 */
 	@EventHandler(ignoreCancelled = true)
-	public void onPlayerChangeWorld(PlayerChangedWorldEvent e) {
+	public void onPlayerChangeWorld(PlayerChangedWorldEvent event) {
 		
-		final Player player = e.getPlayer();
-		if(player.hasPermission(Permissions.TOGGLE)) {
-			// update the player WorldeditCache after a delay
-			// (It doesn't work with no delay)
-			new BukkitRunnable() {
-				@Override
-				public void run() {
-					plugin.refreshWorldeditRegionsCache(player);
-				}
-			}.runTaskLater(plugin, 10);
+		final Player player = event.getPlayer();
+		if (player.hasPermission(Permissions.TOGGLE)) {
+			// update the player WorldeditCache after a necessary delay
+			Bukkit.getScheduler().runTaskLater(ModMode.PLUGIN, () -> {
+				ModMode.refreshWorldeditRegionsCache(player);
+			}, 10);
 		}
 
-		if (e.getPlayer().getGameMode() == GameMode.CREATIVE)
-			return;
-
-		if (plugin.allowFlight) {
-			e.getPlayer().setAllowFlight(plugin.isModMode(e.getPlayer()));
+		if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
+			if (ModMode.PLUGIN.allowFlight) {
+				boolean flightState = ModMode.PLUGIN.isModMode(event.getPlayer());
+				event.getPlayer().setAllowFlight(flightState);
+			}
 		}
 	}
 
+	// ------------------------------------------------------------------------
+	/**
+	 * Restores a player's flight ability upon changing game modes.
+	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onPlayerGameModeChange(final PlayerGameModeChangeEvent event) {
-		// Fix gamemode toggle removing flight
-		new BukkitRunnable() {
-			public void run() {
-				plugin.restoreFlight(event.getPlayer(), plugin.isModMode(event.getPlayer()));
-			}
-		}.runTask(plugin);
+		Bukkit.getScheduler().runTask(ModMode.PLUGIN, () -> {
+			boolean flightState = ModMode.PLUGIN.isModMode(event.getPlayer());
+			ModMode.PLUGIN.restoreFlight(event.getPlayer(), flightState);
+		});
 	}
 
+	// ------------------------------------------------------------------------
+	/**
+	 * Prevents the depletion of hunger level for players in ModMode.
+	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onFoodLevelChange(FoodLevelChangeEvent event) {
 		if (event.getEntity() instanceof Player) {
 			Player player = (Player) event.getEntity();
-			if (plugin.isModMode(player)) {
+			if (ModMode.PLUGIN.isModMode(player)) {
 				if (player.getFoodLevel() != 20) {
 					player.setFoodLevel(20);
 				}
@@ -178,4 +215,5 @@ public class ModModeListener implements Listener {
 			}
 		}
 	}
-}
+
+} // ModModeListener

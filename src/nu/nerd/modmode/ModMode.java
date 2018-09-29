@@ -36,17 +36,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.logging.Level;
 
+// ------------------------------------------------------------------------
+/**
+ * The main plugin and command-handling class.
+ */
 public class ModMode extends JavaPlugin {
 
 	/**
 	 * This plugin.
 	 */
 	static ModMode PLUGIN;
-
-	private final ModModeListener listener = new ModModeListener(this);
-	private LogBlockListener logBlockListener;
 
 	/**
 	 * For Moderators in ModMode, this is persistent storage for their vanish
@@ -62,12 +62,12 @@ public class ModMode extends JavaPlugin {
 	 * This is NOT the set of currently vanished players, which is instead
 	 * maintained by the VanishNoPacket plugin.
 	 */
-	public Set<String> vanished;
+	private Set<String> vanished;
 	public Set<String> modmode;
-	public Map<String, String> joinedVanished;
-	public boolean allowFlight;
+	Map<String, String> joinedVanished;
+	boolean allowFlight;
 
-	public boolean usingbperms;
+	private boolean usingbperms;
 
 	/**
 	 * If true, player data loads and saves are logged to the console.
@@ -79,10 +79,10 @@ public class ModMode extends JavaPlugin {
 	 * ModMode, e.g. Moderators, PAdmins, SAdmins, etc. These must be
 	 * mutually-exclusive; you can't be a Moderator and a PAdmin.
 	 */
-	public String bPermsModGroup;
-	public String bPermsModModeGroup;
-	public Set<String> bPermsKeepGroups;
-	public Set<String> bPermsWorlds;
+	private String bPermsModGroup;
+	private String bPermsModModeGroup;
+	private Set<String> bPermsKeepGroups;
+	private Set<String> bPermsWorlds;
 
 	/**
 	 * When entering ModMode, a staff member in any of bPermsModGroups (e.g.
@@ -91,46 +91,120 @@ public class ModMode extends JavaPlugin {
 	 * a map from player name to removed group name, so that the normal group
 	 * can be restored when they leave ModMode.
 	 */
-	public ConfigurationSection groupMap;
+	private ConfigurationSection groupMap;
 
 	/**
 	 * Commands executed immediately before ModMode is activated.
 	 */
-	public List<String> beforeActivationCommands;
+	private List<String> beforeActivationCommands;
 
 	/**
 	 * Commands executed immediately after ModMode is activated.
 	 */
-	public List<String> afterActivationCommands;
+	private List<String> afterActivationCommands;
 
 	/**
 	 * Commands executed immediately before ModMode is deactivated.
 	 */
-	public List<String> beforeDeactivationCommands;
+	private List<String> beforeDeactivationCommands;
 
 	/**
 	 * Commands executed immediately after ModMode is deactivated.
 	 */
-	public List<String> afterDeactivationCommands;
+	private List<String> afterDeactivationCommands;
 
-	protected VanishPlugin vanish;
+	private VanishPlugin vanish;
 
+	// ------------------------------------------------------------------------
+	/**
+	 * @see JavaPlugin#onEnable().
+	 */
+	@Override
+	public void onEnable() {
+
+		new ModModeListener();
+
+		NerdBoard nerdBoard = NerdBoardHook.getNerdBoard();
+		if (nerdBoard != null) {
+			new NerdBoardHook(nerdBoard);
+		} else {
+			log("NerdBoard is required. http://github.com/nerdnu/NerdBoard");
+			getPluginLoader().disablePlugin(this);
+			return;
+		}
+
+		saveDefaultConfig();
+		loadConfiguration();
+
+		vanish = (VanishPlugin) getServer().getPluginManager().getPlugin("VanishNoPacket");
+		if (vanish == null) {
+			log("VanishNoPacket required. Download it here http://dev.bukkit.org/server-mods/vanish/");
+			getPluginLoader().disablePlugin(this);
+			return;
+		} else {
+			// Make sure that VanishNoPacket is enabled.
+			getPluginLoader().enablePlugin(vanish);
+
+			// Intercept the /vanish command and handle it here.
+			CommandExecutor ownExecutor = getCommand("modmode").getExecutor();
+			PluginCommand vanishCommand = vanish.getCommand("vanish");
+			vanishCommand.setExecutor(ownExecutor);
+			vanishCommand.setPermission(Permissions.VANISH);
+		}
+
+		Plugin logBlock = getServer().getPluginManager().getPlugin("LogBlock");
+		if (logBlock != null && !logBlock.isEnabled()) {
+			getPluginLoader().enablePlugin(logBlock);
+		}
+
+		if (getServer().getPluginManager().isPluginEnabled("LogBlock")) {
+			new LogBlockListener();
+		} else {
+			log("LogBlock is not loaded. Integration disabled.");
+		}
+
+		if (usingbperms) {
+			de.bananaco.bpermissions.imp.Permissions bPermsPlugin;
+
+			bPermsPlugin = (de.bananaco.bpermissions.imp.Permissions) getServer().getPluginManager().getPlugin("bPermissions");
+			if (bPermsPlugin == null || !(bPermsPlugin instanceof de.bananaco.bpermissions.imp.Permissions)) {
+				if (!bPermsPlugin.isEnabled()) {
+					getPluginLoader().enablePlugin(bPermsPlugin);
+				}
+				log("bperms turned on, but plugin could not be loaded.");
+				getPluginLoader().disablePlugin(this);
+			}
+		}
+
+	} // onEnable
+
+	// ------------------------------------------------------------------------
+	/**
+	 * @see JavaPlugin#onDisable().
+	 */
+	@Override
+	public void onDisable() {
+		HandlerList.unregisterAll(this);
+		saveConfiguration();
+	}
+
+	// ------------------------------------------------------------------------
 	/**
 	 * Load the configuration.
 	 */
-	public void loadConfiguration() {
+	private void loadConfiguration() {
 		reloadConfig();
 
-		vanished = new TreeSet<String>(getConfig().getStringList("vanished"));
-		modmode = new HashSet<String>(getConfig().getStringList("modmode"));
-		joinedVanished = new HashMap<String, String>();
+		vanished = new TreeSet<>(getConfig().getStringList("vanished"));
+		modmode = new HashSet<>(getConfig().getStringList("modmode"));
+		joinedVanished = new HashMap<>();
 		allowFlight = getConfig().getBoolean("allow.flight", true);
 
 		NerdBoardHook.setAllowCollisions(getConfig().getBoolean("allow.collisions", true));
 
 		usingbperms = getConfig().getBoolean("bperms.enabled", false);
-		bPermsKeepGroups = new HashSet<String>(getConfig().getStringList("bperms.keepgroups"));
-		bPermsWorlds = new HashSet<String>(getConfig().getStringList("bperms.worlds"));
+		bPermsKeepGroups = new HashSet<>(getConfig().getStringList("bperms.keepgroups"));
+		bPermsWorlds = new HashSet<>(getConfig().getStringList("bperms.worlds"));
 
 		if (bPermsWorlds.isEmpty()) {
 			bPermsWorlds.add("world");
@@ -151,11 +225,12 @@ public class ModMode extends JavaPlugin {
 		afterDeactivationCommands = getConfig().getStringList("commands.deactivate.after");
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Save the configuration.
 	 */
-	public void saveConfiguration() {
-		getConfig().set("vanished", new ArrayList<String>(vanished));
+	void saveConfiguration() {
+		getConfig().set("vanished", new ArrayList<>(vanished));
 		getConfig().set("modmode", modmode.toArray());
 		getConfig().set("allow.flight", allowFlight);
 		getConfig().set("allow.collisions", NerdBoardHook.allowsCollisions());
@@ -167,15 +242,17 @@ public class ModMode extends JavaPlugin {
 		saveConfig();
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Return true if the player is currently vanished.
 	 *
 	 * @return true if the player is currently vanished.
 	 */
-	public boolean isVanished(Player player) {
+	boolean isVanished(Player player) {
 		return vanish.getManager().isVanished(player);
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Return the persistent (cross login) vanish state.
 	 *
@@ -186,10 +263,11 @@ public class ModMode extends JavaPlugin {
 	 * @param player the player.
 	 * @return true if vanished.
 	 */
-	public boolean getPersistentVanishState(Player player) {
+	boolean getPersistentVanishState(Player player) {
 		return vanished.contains(player.getUniqueId().toString());
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Save the current vanish state of the player as his persistent vanish
 	 * state.
@@ -198,7 +276,7 @@ public class ModMode extends JavaPlugin {
 	 * normally vanish without being in ModMode. See the doc comment for
 	 * {@link #vanished}.
 	 */
-	public void setPersistentVanishState(Player player) {
+	void setPersistentVanishState(Player player) {
 		if (vanish.getManager().isVanished(player)) {
 			vanished.add(player.getUniqueId().toString());
 		} else {
@@ -206,16 +284,18 @@ public class ModMode extends JavaPlugin {
 		}
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Return true if the player is currently in ModMode.
 	 *
 	 * @param player the Player.
 	 * @return true if the player is currently in ModMode.
 	 */
-	public boolean isModMode(Player player) {
+	boolean isModMode(Player player) {
 		return modmode.contains(player.getUniqueId().toString());
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Return true if the player has Admin permissions.
 	 *
@@ -225,22 +305,24 @@ public class ModMode extends JavaPlugin {
 	 *
 	 * @return true for Admins, false for Moderators and default players.
 	 */
-	public boolean isAdmin(Player player) {
+	boolean isAdmin(Player player) {
 		return player.hasPermission(Permissions.ADMIN);
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Set the vanish state of the player.
 	 *
 	 * @param player the Player.
 	 * @param vanished true if he should be vanished.
 	 */
-	public void setVanish(Player player, boolean vanished) {
+	void setVanish(Player player, boolean vanished) {
 		if (vanish.getManager().isVanished(player) != vanished) {
 			vanish.getManager().toggleVanish(player);
 		}
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Try to coerce VanishNoPacket into showing or hiding players to each other
 	 * based on their current vanish state and permissions.
@@ -248,23 +330,29 @@ public class ModMode extends JavaPlugin {
 	 * Just calling resetSeeing() when a moderator toggles ModMode (and hence
 	 * permissions and vanish state) is apparently insufficient.
 	 */
-	public void updateAllPlayersSeeing() {
+	void updateAllPlayersSeeing() {
 		for (Player player : Bukkit.getOnlinePlayers()) {
 			vanish.getManager().playerRefresh(player);
 		}
 	}
 
-	public void showVanishList(CommandSender sender) {
-		String result = "";
+	// ------------------------------------------------------------------------
+	/**
+	 * Sends a list of currently-vanished players to the given CommandSender.
+	 *
+	 * @param sender the CommandSender.
+	 */
+	private void showVanishList(CommandSender sender) {
+		StringBuilder result = new StringBuilder();
 		boolean first = true;
 		for (Player player : Bukkit.getServer().getOnlinePlayers()) {
 			if (vanish.getManager().isVanished(player)) {
 				if (first) {
 					first = false;
 				} else {
-					result += ", ";
+					result.append(", ");
 				}
-				result += player.getName();
+				result.append(player.getName());
 			}
 		}
 
@@ -275,10 +363,19 @@ public class ModMode extends JavaPlugin {
 		}
 	}
 
-	public String getCleanModModeName(Player player) {
+	// ------------------------------------------------------------------------
+	/**
+	 * Returns a "clean" ModMode name for the given player by prepending the
+	 * player's name with "modmode_".
+	 *
+	 * @param player the player.
+	 * @return the player's ModMode name.
+	 */
+	String getCleanModModeName(Player player) {
 		return "modmode_" + player.getName();
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Return the File used to store the player's normal or ModMode state.
 	 *
@@ -286,7 +383,7 @@ public class ModMode extends JavaPlugin {
 	 * @param isModMode true if the data is for the ModMode state.
 	 * @return the File used to store the player's normal or ModMode state.
 	 */
-	public File getStateFile(Player player, boolean isModMode) {
+	private File getStateFile(Player player, boolean isModMode) {
 		File playersDir = new File(getDataFolder(), "players");
 		playersDir.mkdirs();
 
@@ -294,16 +391,17 @@ public class ModMode extends JavaPlugin {
 		return new File(playersDir, fileName);
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Save the player's data to a YAML configuration file.
 	 *
 	 * @param player the player.
 	 * @param isModMode true if the saved data is for the ModMode inventory.
 	 */
-	public void savePlayerData(Player player, boolean isModMode) {
+	private void savePlayerData(Player player, boolean isModMode) {
 		File stateFile = getStateFile(player, isModMode);
 		if (debugPlayerData) {
-			getLogger().info("savePlayerData(): " + stateFile);
+			log("savePlayerData(): " + stateFile);
 		}
 
 		// Keep 2 backups of saved player data.
@@ -313,7 +411,9 @@ public class ModMode extends JavaPlugin {
 			backup1.renameTo(backup2);
 			stateFile.renameTo(backup1);
 		} catch (Exception ex) {
-			getLogger().warning(ex.getClass().getName() + " raised saving state file backups for " + player.getName() + " (" + player.getUniqueId().toString() + ").");
+			String msg = " raised saving state file backups for " + player.getName()
+							 + " (" + player.getUniqueId().toString() + ").";
+			log(ex.getClass().getName() + msg);
 		}
 
 		YamlConfiguration config = new YamlConfiguration();
@@ -347,20 +447,21 @@ public class ModMode extends JavaPlugin {
 		try {
 			config.save(stateFile);
 		} catch (Exception exception) {
-			getLogger().warning("Failed to save player data for " + player.getName() + "(" + player.getUniqueId().toString() + ")");
+			log("Failed to save player data for " + player.getName() + "(" + player.getUniqueId().toString() + ")");
 		}
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Load the player's data from a YAML configuration file.
 	 *
 	 * @param player the player.
 	 * @param isModMode true if the loaded data is for the ModMode inventory.
 	 */
-	public void loadPlayerData(Player player, boolean isModMode) {
+	private void loadPlayerData(Player player, boolean isModMode) {
 		File stateFile = getStateFile(player, isModMode);
 		if (debugPlayerData) {
-			getLogger().info("loadPlayerData(): " + stateFile);
+			log("loadPlayerData(): " + stateFile);
 		}
 
 		YamlConfiguration config = new YamlConfiguration();
@@ -410,6 +511,7 @@ public class ModMode extends JavaPlugin {
 						ItemStack item = inventory.getItemStack(key);
 						player.getInventory().setItem(slot, item);
 					} catch (Exception ex) {
+						log("[ModMode] Exception while loading " + player.getName() + "'s inventory: " + ex);
 					}
 				}
 			}
@@ -422,15 +524,23 @@ public class ModMode extends JavaPlugin {
 						ItemStack item = enderChest.getItemStack(key);
 						player.getEnderChest().setItem(slot, item);
 					} catch (Exception ex) {
+						log("[ModMode] Exception while loading " + player.getName() + "'s ender chest: " + ex);
 					}
 				}
 			}
 		} catch (Exception ex) {
-			getLogger().warning("Failed to load player data for " + player.getName() + "(" + player.getUniqueId().toString() + ")");
+			log("Failed to load player data for " + player.getName() + "(" + player.getUniqueId().toString() + ")");
 		}
 	}
 
-	public void toggleModMode(final Player player, boolean enabled) {
+	// ------------------------------------------------------------------------
+	/**
+	 * Sets the given player's ModMode status to the given state.
+	 *
+	 * @param player the player.
+	 * @param enabled the state.
+	 */
+	private void toggleModMode(final Player player, boolean enabled) {
 		if (enabled) {
 			runCommands(player, beforeActivationCommands);
 		} else {
@@ -490,9 +600,7 @@ public class ModMode extends JavaPlugin {
 				}
 			}
 
-			if (!modmode.contains(player.getUniqueId().toString())) {
-				modmode.add(player.getUniqueId().toString());
-			}
+			modmode.add(player.getUniqueId().toString());
 
 			// Always vanish when entering ModMode. Record the old vanish state
 			// for admins only.
@@ -540,94 +648,21 @@ public class ModMode extends JavaPlugin {
 		}
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Restore flight ability if in ModMode or creative game mode.
 	 *
 	 * @param player the player.
 	 * @param isInModMode true if the player is in ModMode.
 	 */
-	public void restoreFlight(Player player, boolean isInModMode) {
+	void restoreFlight(Player player, boolean isInModMode) {
 		player.setAllowFlight((isInModMode && allowFlight) || player.getGameMode() == GameMode.CREATIVE);
 	}
 
 	// ------------------------------------------------------------------------
 	/**
-	 * @see JavaPlugin#onEnable().
+	 * @see CommandExecutor#onCommand(CommandSender, Command, String, String[]).
 	 */
-	@Override
-	public void onEnable() {
-
-		NerdBoard nerdBoard = NerdBoardHook.getNerdBoard();
-		if (nerdBoard != null) {
-			new NerdBoardHook(nerdBoard);
-		} else {
-			getLogger().severe("NerdBoard is required. http://github.com/nerdnu/NerdBoard");
-			getPluginLoader().disablePlugin(this);
-			return;
-		}
-
-		saveDefaultConfig();
-		loadConfiguration();
-
-		vanish = (VanishPlugin) getServer().getPluginManager().getPlugin("VanishNoPacket");
-		if (vanish == null) {
-			getLogger().severe("VanishNoPacket required. Download it here http://dev.bukkit.org/server-mods/vanish/");
-			getPluginLoader().disablePlugin(this);
-			return;
-		} else {
-			// Make sure that VanishNoPacket is enabled.
-			getPluginLoader().enablePlugin(vanish);
-
-			// Intercept the /vanish command and handle it here.
-			CommandExecutor ownExecutor = getCommand("modmode").getExecutor();
-			PluginCommand vanishCommand = vanish.getCommand("vanish");
-			vanishCommand.setExecutor(ownExecutor);
-			vanishCommand.setPermission(Permissions.VANISH);
-		}
-
-		Plugin logBlock = getServer().getPluginManager().getPlugin("LogBlock");
-		if (logBlock != null && !logBlock.isEnabled()) {
-			getPluginLoader().enablePlugin(logBlock);
-		}
-
-		if (!getServer().getPluginManager().isPluginEnabled("LogBlock")) {
-			getLogger().info("LogBlock integration is disabled. LogBlock not loaded.");
-		} else {
-			this.logBlockListener = new LogBlockListener(this);
-		}
-
-		if (usingbperms) {
-			de.bananaco.bpermissions.imp.Permissions bPermsPlugin = null;
-
-			bPermsPlugin = (de.bananaco.bpermissions.imp.Permissions) getServer().getPluginManager().getPlugin("bPermissions");
-			if (bPermsPlugin == null || !(bPermsPlugin instanceof de.bananaco.bpermissions.imp.Permissions)) {
-				if (!bPermsPlugin.isEnabled()) {
-					getPluginLoader().enablePlugin(bPermsPlugin);
-				}
-				getLogger().log(Level.INFO, "bperms turned on, but plugin could not be loaded.");
-				getPluginLoader().disablePlugin(this);
-				return;
-			}
-		}
-
-		getServer().getPluginManager().registerEvents(listener, this);
-		if (this.logBlockListener != null)
-			getServer().getPluginManager().registerEvents(logBlockListener, this);
-	} // onEnable
-
-	// ------------------------------------------------------------------------
-	/**
-	 * @see JavaPlugin#onDisable().
-	 */
-	@Override
-	public void onDisable() {
-		HandlerList.unregisterAll(listener);
-		if (logBlockListener != null) {
-			HandlerList.unregisterAll(logBlockListener);
-		}
-		saveConfiguration();
-	}
-
 	@Override
 	public boolean onCommand(CommandSender sender, Command command, String name, String[] args) {
 		if (command.getName().equalsIgnoreCase("vanishlist")) {
@@ -666,13 +701,14 @@ public class ModMode extends JavaPlugin {
 		return true;
 	} // onCommand
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Handle /modmode [save|reload] both for players in-game and the console.
 	 *
 	 * @param sender the command sender.
 	 * @param args command arguments.
 	 */
-	protected void cmdModMode(CommandSender sender, String[] args) {
+	private void cmdModMode(CommandSender sender, String[] args) {
 		if (args.length == 0) {
 			if (!isInGame(sender)) {
 				return;
@@ -703,6 +739,7 @@ public class ModMode extends JavaPlugin {
 		}
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Return true if the CommandSender is a Player (in-game).
 	 *
@@ -712,7 +749,7 @@ public class ModMode extends JavaPlugin {
 	 * @param sender the command sender.
 	 * @return true if the CommandSender is a Player (in-game).
 	 */
-	protected boolean isInGame(CommandSender sender) {
+	private boolean isInGame(CommandSender sender) {
 		boolean inGame = (sender instanceof Player);
 		if (!inGame) {
 			sender.sendMessage("You need to be in-game to use this command.");
@@ -720,29 +757,38 @@ public class ModMode extends JavaPlugin {
 		return inGame;
 	}
 
+	// ------------------------------------------------------------------------
 	/**
 	 * Run all of the commands in the List of Strings.
 	 *
 	 * @param player the moderator causing the commands to run.
 	 * @param commands the commands to run.
 	 */
-	public void runCommands(Player player, List<String> commands) {
+	private void runCommands(Player player, List<String> commands) {
 		for (String command : commands) {
-			// dispatchCommand() doesn't cope with a leading '/' in commands.
+			// dispatchCommand() doesn't cope with a leading '/' in commands
 			if (command.length() > 0 && command.charAt(0) == '/') {
 				command = command.substring(1);
 			}
 			try {
 				if (!Bukkit.getServer().dispatchCommand(player, command)) {
-					getLogger().warning("Command \"" + command + "\" could not be executed.");
+					log("Command \"" + command + "\" could not be executed.");
 				}
 			} catch (Exception ex) {
-				getLogger().severe("Command \"" + command + "\" raised " + ex.getClass().getName());
+				log("Command \"" + command + "\" raised " + ex.getClass().getName());
 			}
 		}
 	}
 
-	public static boolean containsIgnoreCase(Collection<String> targetList, String search) {
+	// ------------------------------------------------------------------------
+	/**
+	 * Returns true if the given collection contains the given string.
+	 *
+	 * @param targetList the target collection.
+	 * @param search the target string.
+	 * @return true if the given collection contains the given string.
+	 */
+	private static boolean containsIgnoreCase(Collection<String> targetList, String search) {
 		for (String target : targetList) {
 			if (target.equalsIgnoreCase(search)) {
 				return true;
@@ -752,8 +798,9 @@ public class ModMode extends JavaPlugin {
 		return false;
 	}
 
+	// ------------------------------------------------------------------------
 	/**
-	 * Worldedit Regions tends to cache player permission. This causes
+	 * WorldeditRegions tends to cache player permission. This causes
 	 * breakage when a player changes world or their permissions change
 	 * on the fly, especially wrg.bypass
 	 * 
@@ -762,7 +809,7 @@ public class ModMode extends JavaPlugin {
 	 * 
 	 * @param player The player to update
 	 */
-	public void refreshWorldeditRegionsCache(Player player) {
+	static void refreshWorldeditRegionsCache(Player player) {
 		try {
 			Class<?> clazz = Class.forName("com.empcraft.wrg.util.RegionHandler");
 
@@ -771,21 +818,32 @@ public class ModMode extends JavaPlugin {
 			method.invoke(null, player);
 			method = clazz.getMethod("refreshPlayer", Player.class);
 			method.invoke(null, player);
-
-			//getLogger().info("refreshPlayer() called!"); // ensure we didn't throw something
-			//boolean flag = player.hasPermission("wrg.bypass"); // Ensure bPerms is working correctly
-			//getLogger().info("wrg.bypass = " + flag);
-		} catch (ClassNotFoundException e) {
-			// Ignore this exception. This is normal if the plugin is not loaded
+		} catch (ClassNotFoundException e) { // this is normal if the plugin is not loaded
 		} catch (NoSuchMethodException e) {
-			getLogger().warning(e.getClass().getName() + " Cannot find public static void com.empcraft.wrg.util.RegionHandler.refreshPlayer(final Player player)");
-		} catch (IllegalAccessException e) {
-			getLogger().warning(e.getClass().getName() + " Could not invoke com.empcraft.wrg.util.RegionHandler.refreshPlayer");
-		} catch (InvocationTargetException e) {
-			getLogger().warning(e.getClass().getName() + " Could not invoke com.empcraft.wrg.util.RegionHandler.refreshPlayer");
-		} catch (Exception e) {
-			// catch-all
-			getLogger().warning(e.toString());
+			log(e.getClass().getName() + " Cannot find public static void com.empcraft.wrg.util.RegionHandler.refreshPlayer(final Player player)");
+		} catch (IllegalAccessException | InvocationTargetException e) {
+			log(e.getClass().getName() + " Could not invoke com.empcraft.wrg.util.RegionHandler.refreshPlayer");
+		} catch (Exception e) { // catch-all
+			log(e.toString());
 		}
 	}
-}
+
+	// ------------------------------------------------------------------------
+	/**
+	 * A logging method used instead of {@link java.util.logging.Logger} to
+	 * faciliate prefix coloring.
+	 *
+	 * @param msg the message to log.
+	 */
+	static void log(String msg) {
+		System.out.println(PREFIX + msg);
+	}
+
+	// ------------------------------------------------------------------------
+	/**
+	 * This plugin's prefix as a string; for logging.
+	 */
+	private static final String PREFIX = ChatColor.WHITE + "[" + ChatColor.GREEN
+											 + "ModMode" + ChatColor.WHITE + "] ";
+
+} // ModMode
