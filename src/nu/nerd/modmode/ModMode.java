@@ -1,13 +1,7 @@
 package nu.nerd.modmode;
 
-import java.io.File;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.TreeSet;
-import java.util.logging.Level;
-
+import de.bananaco.bpermissions.api.ApiLayer;
+import de.bananaco.bpermissions.api.util.CalculableType;
 import nu.nerd.nerdboard.NerdBoard;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -30,40 +24,29 @@ import org.bukkit.potion.PotionEffect;
 import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 
-import de.bananaco.bpermissions.api.ApiLayer;
-import de.bananaco.bpermissions.api.util.CalculableType;
-
+import java.io.File;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.ScoreboardManager;
-import org.bukkit.scoreboard.Team;
-import org.bukkit.scoreboard.Team.Option;
-import org.bukkit.scoreboard.Team.OptionStatus;
+import java.util.TreeSet;
+import java.util.logging.Level;
 
 public class ModMode extends JavaPlugin {
 
+	/**
+	 * This plugin.
+	 */
+	static ModMode PLUGIN;
+
 	private final ModModeListener listener = new ModModeListener(this);
 	private LogBlockListener logBlockListener;
-
-	/**
-	 * Scoreboard API stuff for colored name tags
-	 */
-	public Scoreboard scoreboardModMode;
-	public Team teamModMode;
-	public Team teamVanished;
-
-	/**
-	 * Players who are not in ModMode or vanished are added to this team so that
-	 * we can control their collidability. LivingEntity.setCollidable() is
-	 * broken: https://hub.spigotmc.org/jira/browse/SPIGOT-2069
-	 */
-	public Team teamDefault;
 
 	/**
 	 * For Moderators in ModMode, this is persistent storage for their vanish
@@ -84,11 +67,6 @@ public class ModMode extends JavaPlugin {
 	public Map<String, String> joinedVanished;
 	public boolean allowFlight;
 
-	/**
-	 * Allow collisions between unvanished players. Vanished staff are never
-	 * collidable.
-	 */
-	public boolean allowCollisions;
 	public boolean usingbperms;
 
 	/**
@@ -136,7 +114,6 @@ public class ModMode extends JavaPlugin {
 	public List<String> afterDeactivationCommands;
 
 	protected VanishPlugin vanish;
-	protected NerdBoard nerdBoard;
 
 	/**
 	 * Load the configuration.
@@ -148,8 +125,9 @@ public class ModMode extends JavaPlugin {
 		modmode = new HashSet<String>(getConfig().getStringList("modmode"));
 		joinedVanished = new HashMap<String, String>();
 		allowFlight = getConfig().getBoolean("allow.flight", true);
-		allowCollisions = getConfig().getBoolean("allow.collisions", true);
-		teamDefault.setOption(Option.COLLISION_RULE, allowCollisions ? OptionStatus.ALWAYS : OptionStatus.NEVER);
+
+		NerdBoardHook.setAllowCollisions(getConfig().getBoolean("allow.collisions", true));
+
 		usingbperms = getConfig().getBoolean("bperms.enabled", false);
 		bPermsKeepGroups = new HashSet<String>(getConfig().getStringList("bperms.keepgroups"));
 		bPermsWorlds = new HashSet<String>(getConfig().getStringList("bperms.worlds"));
@@ -180,7 +158,7 @@ public class ModMode extends JavaPlugin {
 		getConfig().set("vanished", new ArrayList<String>(vanished));
 		getConfig().set("modmode", modmode.toArray());
 		getConfig().set("allow.flight", allowFlight);
-		getConfig().set("allow.collisions", allowCollisions);
+		getConfig().set("allow.collisions", NerdBoardHook.allowsCollisions());
 		getConfig().set("bperms.enabled", usingbperms);
 		getConfig().set("bperms.keepgroups", bPermsKeepGroups.toArray());
 		getConfig().set("bperms.worlds", bPermsWorlds.toArray());
@@ -260,25 +238,6 @@ public class ModMode extends JavaPlugin {
 	public void setVanish(Player player, boolean vanished) {
 		if (vanish.getManager().isVanished(player) != vanished) {
 			vanish.getManager().toggleVanish(player);
-		}
-	}
-
-	/**
-	 * Assign the player to the Team that corresponds to its vanish and modmode
-	 * states.
-	 *
-	 * The Team controls the name tag prefix (colour) and collision detection
-	 * between players.
-	 *
-	 * @param player the player.
-	 */
-	public void assignTeam(Player player) {
-		if (isModMode(player)) {
-			nerdBoard.addPlayerToTeam(teamModMode, player);
-		} else if (isVanished(player)) {
-			nerdBoard.addPlayerToTeam(teamVanished, player);
-		} else {
-			nerdBoard.addPlayerToTeam(teamDefault, player);
 		}
 	}
 
@@ -554,7 +513,7 @@ public class ModMode extends JavaPlugin {
 		VanishPerms.userQuit(player);
 
 		// Update the nametage for the player
-		assignTeam(player);
+		NerdBoardHook.reconcilePlayerWithVanishState(player);
 
 		// Update who sees whom AFTER permissions and vanish state changes.
 		updateAllPlayersSeeing();
@@ -591,26 +550,21 @@ public class ModMode extends JavaPlugin {
 		player.setAllowFlight((isInModMode && allowFlight) || player.getGameMode() == GameMode.CREATIVE);
 	}
 
+	// ------------------------------------------------------------------------
+	/**
+	 * @see JavaPlugin#onEnable().
+	 */
 	@Override
 	public void onEnable() {
-		nerdBoard = (NerdBoard) getServer().getPluginManager().getPlugin("NerdBoard");
-		if (nerdBoard == null) {
+
+		NerdBoard nerdBoard = NerdBoardHook.getNerdBoard();
+		if (nerdBoard != null) {
+			new NerdBoardHook(nerdBoard);
+		} else {
 			getLogger().severe("NerdBoard is required. http://github.com/nerdnu/NerdBoard");
 			getPluginLoader().disablePlugin(this);
 			return;
 		}
-
-		this.scoreboardModMode = nerdBoard.getScoreboard();
-
-		this.teamModMode = getOrCreateTeam("Mod Mode");
-		this.teamModMode.setPrefix(ChatColor.GREEN + "");
-		this.teamModMode.setOption(Option.COLLISION_RULE, OptionStatus.NEVER);
-
-		this.teamVanished = getOrCreateTeam("Vanished");
-		this.teamVanished.setPrefix(ChatColor.BLUE + "");
-		this.teamVanished.setOption(Option.COLLISION_RULE, OptionStatus.NEVER);
-
-		this.teamDefault = getOrCreateTeam("Default");
 
 		saveDefaultConfig();
 		loadConfiguration();
@@ -661,6 +615,10 @@ public class ModMode extends JavaPlugin {
 			getServer().getPluginManager().registerEvents(logBlockListener, this);
 	} // onEnable
 
+	// ------------------------------------------------------------------------
+	/**
+	 * @see JavaPlugin#onDisable().
+	 */
 	@Override
 	public void onDisable() {
 		HandlerList.unregisterAll(listener);
@@ -695,16 +653,12 @@ public class ModMode extends JavaPlugin {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
 			} else {
 				setVanish(player, true);
-
-				// Update the nametage for the player
-				assignTeam(player);
+				NerdBoardHook.reconcilePlayerWithVanishState(player);
 			}
 		} else if (command.getName().equalsIgnoreCase("unvanish")) {
 			if (isVanished(player)) {
 				setVanish(player, false);
-
-				// Update the nametage for the player
-				assignTeam(player);
+				NerdBoardHook.reconcilePlayerWithVanishState(player);
 			} else {
 				player.sendMessage(ChatColor.DARK_AQUA + "You are already visible.");
 			}
@@ -798,21 +752,6 @@ public class ModMode extends JavaPlugin {
 		return false;
 	}
 
-	/**
-	 * Look up a Team by name in the Scoreboard, or create a new one with the
-	 * specified name if not found.
-	 *
-	 * @param name the Team name.
-	 * @return the Team with that name.
-	 */
-	protected Team getOrCreateTeam(String name) {
-		Team team = scoreboardModMode.getTeam(name);
-		if (team == null) {
-		    team = nerdBoard.addTeam(name);
-		}
-        return team;
-	}
-	
 	/**
 	 * Worldedit Regions tends to cache player permission. This causes
 	 * breakage when a player changes world or their permissions change

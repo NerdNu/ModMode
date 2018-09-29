@@ -9,6 +9,8 @@ main: nu.nerd.modmode.ModMode
 softdepend: [bPermissions, TagAPI, LogBlock]
 depend: [VanishNoPacket, NerdBoard]
 
+api-version: 1.13
+
 commands:
   vanish:
     description: Vanish, or check vanish state with /vanish check.

@@ -17,8 +17,6 @@ import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import com.google.common.eventbus.AllowConcurrentEvents;
-
 public class ModModeListener implements Listener {
 	final ModMode plugin;
 
@@ -53,8 +51,7 @@ public class ModModeListener implements Listener {
 			plugin.restoreFlight(player, inModMode);
 		}
 
-		player.setScoreboard(plugin.scoreboardModMode);
-		plugin.assignTeam(player);
+		NerdBoardHook.reconcilePlayerWithVanishState(player);
 		plugin.updateAllPlayersSeeing();
 	}
 
