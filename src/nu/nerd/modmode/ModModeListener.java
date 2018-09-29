@@ -17,6 +17,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import static nu.nerd.modmode.ModMode.CONFIG;
+
 // ------------------------------------------------------------------------
 /**
  * The plugin's main event-handling class.
@@ -55,7 +57,7 @@ public class ModModeListener implements Listener {
 
 			if (vanished) {
 				ModMode.PLUGIN.setVanish(player, true);
-				ModMode.PLUGIN.joinedVanished.put(player.getUniqueId().toString(), event.getJoinMessage());
+				CONFIG.joinedVanished.put(player.getUniqueId().toString(), event.getJoinMessage());
 				event.setJoinMessage(null);
 			}
 
@@ -76,7 +78,7 @@ public class ModModeListener implements Listener {
 	public void onPlayerQuit(PlayerQuitEvent event) {
 		Player player = event.getPlayer();
 
-		ModMode.PLUGIN.joinedVanished.remove(player.getUniqueId().toString());
+		CONFIG.joinedVanished.remove(player.getUniqueId().toString());
 
 		// Suppress quit messages when vanished.
 		if (ModMode.PLUGIN.isVanished(player)) {
@@ -88,7 +90,7 @@ public class ModModeListener implements Listener {
 		if (player.hasPermission(Permissions.TOGGLE) &&
 			ModMode.PLUGIN.isModMode(player) != ModMode.PLUGIN.isAdmin(player)) {
 			ModMode.PLUGIN.setPersistentVanishState(player);
-			ModMode.PLUGIN.saveConfiguration();
+			CONFIG.save();
 		}
 	}
 
@@ -180,7 +182,7 @@ public class ModModeListener implements Listener {
 		}
 
 		if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
-			if (ModMode.PLUGIN.allowFlight) {
+			if (CONFIG.allowFlight) {
 				boolean flightState = ModMode.PLUGIN.isModMode(event.getPlayer());
 				event.getPlayer().setAllowFlight(flightState);
 			}

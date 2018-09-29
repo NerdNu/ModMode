@@ -27,15 +27,9 @@ import org.kitteh.vanish.VanishPlugin;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 
 // ------------------------------------------------------------------------
 /**
@@ -49,71 +43,14 @@ public class ModMode extends JavaPlugin {
 	static ModMode PLUGIN;
 
 	/**
-	 * For Moderators in ModMode, this is persistent storage for their vanish
-	 * state when they log out. Moderators out of ModMode are assumed to always
-	 * be visible.
-	 *
-	 * For Admins who can vanish without transitioning into ModMode, this
-	 * variable stores their vanish state between logins only when not in
-	 * ModMode. If they log out in ModMode, they are re-vanished automatically
-	 * when they log in. When they leave ModMode, their vanish state is set
-	 * according to membership in this set.
-	 *
-	 * This is NOT the set of currently vanished players, which is instead
-	 * maintained by the VanishNoPacket plugin.
+	 * The vanish plugin.
 	 */
-	private Set<String> vanished;
-	public Set<String> modmode;
-	Map<String, String> joinedVanished;
-	boolean allowFlight;
-
-	private boolean usingbperms;
-
-	/**
-	 * If true, player data loads and saves are logged to the console.
-	 */
-	private boolean debugPlayerData;
-
-	/**
-	 * The set of all possible permissions groups who can transition into
-	 * ModMode, e.g. Moderators, PAdmins, SAdmins, etc. These must be
-	 * mutually-exclusive; you can't be a Moderator and a PAdmin.
-	 */
-	private String bPermsModGroup;
-	private String bPermsModModeGroup;
-	private Set<String> bPermsKeepGroups;
-	private Set<String> bPermsWorlds;
-
-	/**
-	 * When entering ModMode, a staff member in any of bPermsModGroups (e.g.
-	 * Moderators, PAdmins, etc.) will have that group removed and the "ModMode"
-	 * permission group added. We use this section of the configuration file as
-	 * a map from player name to removed group name, so that the normal group
-	 * can be restored when they leave ModMode.
-	 */
-	private ConfigurationSection groupMap;
-
-	/**
-	 * Commands executed immediately before ModMode is activated.
-	 */
-	private List<String> beforeActivationCommands;
-
-	/**
-	 * Commands executed immediately after ModMode is activated.
-	 */
-	private List<String> afterActivationCommands;
-
-	/**
-	 * Commands executed immediately before ModMode is deactivated.
-	 */
-	private List<String> beforeDeactivationCommands;
-
-	/**
-	 * Commands executed immediately after ModMode is deactivated.
-	 */
-	private List<String> afterDeactivationCommands;
-
 	private VanishPlugin vanish;
+
+	/**
+	 * This plugin's configuration.
+	 */
+	static final Configuration CONFIG = new Configuration();
 
 	// ------------------------------------------------------------------------
 	/**
@@ -133,8 +70,11 @@ public class ModMode extends JavaPlugin {
 			return;
 		}
 
-		saveDefaultConfig();
-		loadConfiguration();
+		if (getServer().getPluginManager().isPluginEnabled("LogBlock")) {
+			new LogBlockListener();
+		} else {
+			log("LogBlock is not loaded. Integration disabled.");
+		}
 
 		vanish = (VanishPlugin) getServer().getPluginManager().getPlugin("VanishNoPacket");
 		if (vanish == null) {
@@ -163,7 +103,7 @@ public class ModMode extends JavaPlugin {
 			log("LogBlock is not loaded. Integration disabled.");
 		}
 
-		if (usingbperms) {
+		if (CONFIG.usingbperms) {
 			de.bananaco.bpermissions.imp.Permissions bPermsPlugin;
 
 			bPermsPlugin = (de.bananaco.bpermissions.imp.Permissions) getServer().getPluginManager().getPlugin("bPermissions");
@@ -185,61 +125,7 @@ public class ModMode extends JavaPlugin {
 	@Override
 	public void onDisable() {
 		HandlerList.unregisterAll(this);
-		saveConfiguration();
-	}
-
-	// ------------------------------------------------------------------------
-	/**
-	 * Load the configuration.
-	 */
-	private void loadConfiguration() {
-		reloadConfig();
-
-		vanished = new TreeSet<>(getConfig().getStringList("vanished"));
-		modmode = new HashSet<>(getConfig().getStringList("modmode"));
-		joinedVanished = new HashMap<>();
-		allowFlight = getConfig().getBoolean("allow.flight", true);
-
-		NerdBoardHook.setAllowCollisions(getConfig().getBoolean("allow.collisions", true));
-
-		usingbperms = getConfig().getBoolean("bperms.enabled", false);
-		bPermsKeepGroups = new HashSet<>(getConfig().getStringList("bperms.keepgroups"));
-		bPermsWorlds = new HashSet<>(getConfig().getStringList("bperms.worlds"));
-
-		if (bPermsWorlds.isEmpty()) {
-			bPermsWorlds.add("world");
-		}
-
-		groupMap = getConfig().getConfigurationSection("groupmap");
-		if (groupMap == null) {
-			getConfig().createSection("groupmap");
-		}
-
-		bPermsModGroup = getConfig().getString("bperms.modgroup", "moderators");
-		bPermsModModeGroup = getConfig().getString("bperms.modmodegroup", "ModMode");
-		debugPlayerData = getConfig().getBoolean("debug.playerdata");
-
-		beforeActivationCommands = getConfig().getStringList("commands.activate.before");
-		afterActivationCommands = getConfig().getStringList("commands.activate.after");
-		beforeDeactivationCommands = getConfig().getStringList("commands.deactivate.before");
-		afterDeactivationCommands = getConfig().getStringList("commands.deactivate.after");
-	}
-
-	// ------------------------------------------------------------------------
-	/**
-	 * Save the configuration.
-	 */
-	void saveConfiguration() {
-		getConfig().set("vanished", new ArrayList<>(vanished));
-		getConfig().set("modmode", modmode.toArray());
-		getConfig().set("allow.flight", allowFlight);
-		getConfig().set("allow.collisions", NerdBoardHook.allowsCollisions());
-		getConfig().set("bperms.enabled", usingbperms);
-		getConfig().set("bperms.keepgroups", bPermsKeepGroups.toArray());
-		getConfig().set("bperms.worlds", bPermsWorlds.toArray());
-		getConfig().set("bperms.modmodegroup", bPermsModModeGroup);
-		getConfig().set("bperms.modgroup", bPermsModGroup);
-		saveConfig();
+		CONFIG.save();
 	}
 
 	// ------------------------------------------------------------------------
@@ -258,13 +144,13 @@ public class ModMode extends JavaPlugin {
 	 *
 	 * This means different things depending on whether the player could
 	 * normally vanish without being in ModMode. See the doc comment for
-	 * {@link #vanished}.
+	 * {@link Configuration#vanished}.
 	 *
 	 * @param player the player.
 	 * @return true if vanished.
 	 */
 	boolean getPersistentVanishState(Player player) {
-		return vanished.contains(player.getUniqueId().toString());
+		return CONFIG.vanished.contains(player.getUniqueId().toString());
 	}
 
 	// ------------------------------------------------------------------------
@@ -274,13 +160,13 @@ public class ModMode extends JavaPlugin {
 	 *
 	 * This means different things depending on whether the player could
 	 * normally vanish without being in ModMode. See the doc comment for
-	 * {@link #vanished}.
+	 * {@link Configuration#vanished}.
 	 */
 	void setPersistentVanishState(Player player) {
 		if (vanish.getManager().isVanished(player)) {
-			vanished.add(player.getUniqueId().toString());
+			CONFIG.vanished.add(player.getUniqueId().toString());
 		} else {
-			vanished.remove(player.getUniqueId().toString());
+			CONFIG.vanished.remove(player.getUniqueId().toString());
 		}
 	}
 
@@ -292,7 +178,7 @@ public class ModMode extends JavaPlugin {
 	 * @return true if the player is currently in ModMode.
 	 */
 	boolean isModMode(Player player) {
-		return modmode.contains(player.getUniqueId().toString());
+		return CONFIG.modmode.contains(player.getUniqueId().toString());
 	}
 
 	// ------------------------------------------------------------------------
@@ -400,7 +286,7 @@ public class ModMode extends JavaPlugin {
 	 */
 	private void savePlayerData(Player player, boolean isModMode) {
 		File stateFile = getStateFile(player, isModMode);
-		if (debugPlayerData) {
+		if (CONFIG.debugPlayerData) {
 			log("savePlayerData(): " + stateFile);
 		}
 
@@ -460,7 +346,7 @@ public class ModMode extends JavaPlugin {
 	 */
 	private void loadPlayerData(Player player, boolean isModMode) {
 		File stateFile = getStateFile(player, isModMode);
-		if (debugPlayerData) {
+		if (CONFIG.debugPlayerData) {
 			log("loadPlayerData(): " + stateFile);
 		}
 
@@ -542,25 +428,25 @@ public class ModMode extends JavaPlugin {
 	 */
 	private void toggleModMode(final Player player, boolean enabled) {
 		if (enabled) {
-			runCommands(player, beforeActivationCommands);
+			runCommands(player, CONFIG.beforeActivationCommands);
 		} else {
-			runCommands(player, beforeDeactivationCommands);
+			runCommands(player, CONFIG.beforeDeactivationCommands);
 		}
 
 		if (!enabled) {
-			if (usingbperms) {
+			if (CONFIG.usingbperms) {
 				List<org.bukkit.World> worlds = getServer().getWorlds();
 				for (org.bukkit.World world : worlds) {
-					if (bPermsWorlds.contains(world.getName())) {
-						List<String> groups = groupMap.getStringList(player.getUniqueId().toString() + "." + world.getName());
+					if (CONFIG.bPermsWorlds.contains(world.getName())) {
+						List<String> groups = CONFIG.groupMap.getStringList(player.getUniqueId().toString() + "." + world.getName());
 						for (String group : groups) {
 							ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
 						}
-						ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
+						ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), CONFIG.bPermsModModeGroup);
 
 						// If no groups, re-add moderator group
 						if (ApiLayer.getGroups(world.getName(), CalculableType.USER, player.getName()).length == 0) {
-							ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModGroup);
+							ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), CONFIG.bPermsModGroup);
 						}
 					}
 				}
@@ -572,35 +458,35 @@ public class ModMode extends JavaPlugin {
 				setVanish(player, getPersistentVanishState(player));
 			} else {
 				setVanish(player, false);
-				if (joinedVanished.containsKey(player.getUniqueId().toString())) {
-					getServer().broadcastMessage(joinedVanished.get(player.getUniqueId().toString()));
+				if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
+					getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
 				}
 			}
 
-			modmode.remove(player.getName());
+			CONFIG.modmode.remove(player.getName());
 			player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
 		} else {
-			if (usingbperms) {
+			if (CONFIG.usingbperms) {
 				// Clean up old mappings
-				groupMap.set(player.getUniqueId().toString(), null);
+				CONFIG.groupMap.set(player.getUniqueId().toString(), null);
 
 				List<org.bukkit.World> worlds = getServer().getWorlds();
 				for (org.bukkit.World world : worlds) {
-					if (bPermsWorlds.contains(world.getName().toLowerCase())) {
+					if (CONFIG.bPermsWorlds.contains(world.getName().toLowerCase())) {
 						List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, player.getName()));
-						groups.remove(bPermsModModeGroup);
-						groupMap.set(player.getUniqueId().toString() + "." + world.getName(), groups);
+						groups.remove(CONFIG.bPermsModModeGroup);
+						CONFIG.groupMap.set(player.getUniqueId().toString() + "." + world.getName(), groups);
 						for (String group : groups) {
-							if (!containsIgnoreCase(bPermsKeepGroups, group)) {
+							if (!containsIgnoreCase(CONFIG.bPermsKeepGroups, group)) {
 								ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
 							}
 						}
-						ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), bPermsModModeGroup);
+						ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), CONFIG.bPermsModModeGroup);
 					}
 				}
 			}
 
-			modmode.add(player.getUniqueId().toString());
+			CONFIG.modmode.add(player.getUniqueId().toString());
 
 			// Always vanish when entering ModMode. Record the old vanish state
 			// for admins only.
@@ -639,12 +525,12 @@ public class ModMode extends JavaPlugin {
 		w.refreshChunk(c.getX(), c.getZ());
 
 		restoreFlight(player, enabled);
-		saveConfiguration();
+		CONFIG.save();
 
 		if (enabled) {
-			runCommands(player, afterActivationCommands);
+			runCommands(player, CONFIG.afterActivationCommands);
 		} else {
-			runCommands(player, afterDeactivationCommands);
+			runCommands(player, CONFIG.afterDeactivationCommands);
 		}
 	}
 
@@ -656,7 +542,7 @@ public class ModMode extends JavaPlugin {
 	 * @param isInModMode true if the player is in ModMode.
 	 */
 	void restoreFlight(Player player, boolean isInModMode) {
-		player.setAllowFlight((isInModMode && allowFlight) || player.getGameMode() == GameMode.CREATIVE);
+		player.setAllowFlight((isInModMode && CONFIG.allowFlight) || player.getGameMode() == GameMode.CREATIVE);
 	}
 
 	// ------------------------------------------------------------------------
@@ -715,10 +601,10 @@ public class ModMode extends JavaPlugin {
 			}
 
 			Player player = (Player)sender;
-			if (modmode.remove(player.getUniqueId().toString())) {
+			if (CONFIG.modmode.remove(player.getUniqueId().toString())) {
 				toggleModMode(player, false);
 			} else {
-				modmode.add(player.getUniqueId().toString());
+				CONFIG.modmode.add(player.getUniqueId().toString());
 				toggleModMode(player, true);
 			}
 		} else if (args.length == 1 && (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload"))) {
@@ -728,10 +614,10 @@ public class ModMode extends JavaPlugin {
 			}
 
 			if (args[0].equalsIgnoreCase("save")) {
-				saveConfiguration();
+				CONFIG.save();
 				sender.sendMessage(ChatColor.GOLD + "ModMode configuration saved.");
 			} else if (args[0].equalsIgnoreCase("reload")) {
-				loadConfiguration();
+				CONFIG.reload();
 				sender.sendMessage(ChatColor.GOLD + "ModMode configuration reloaded.");
 			}
 		} else {
