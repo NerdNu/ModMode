@@ -43,21 +43,21 @@ public class ModModeListener implements Listener {
 
 		// Is the player a moderator or admin?
 		if (player.hasPermission(Permissions.TOGGLE)) {
-			boolean inModMode = ModMode.PLUGIN.isModMode(player);
+			boolean inModMode = PlayerStateCache.inModMode(player);
 			boolean vanished;
 			if (ModMode.PLUGIN.isAdmin(player)) {
 				// Admins log in vanished if they logged out vanished, or if
 				// they logged out in ModMode (vanished or not).
-				vanished = ModMode.PLUGIN.getPersistentVanishState(player) || inModMode;
+				vanished = PlayerStateCache.getPersistentVanishState(player) || inModMode;
 			} else {
 				// Moderators log in vanished if they must have logged out in
 				// ModMode while vanished.
-				vanished = inModMode && ModMode.PLUGIN.getPersistentVanishState(player);
+				vanished = inModMode && PlayerStateCache.getPersistentVanishState(player);
 			}
 
 			if (vanished) {
 				ModMode.PLUGIN.setVanish(player, true);
-				CONFIG.joinedVanished.put(player.getUniqueId().toString(), event.getJoinMessage());
+				PlayerStateCache.setJoinedVanished(player, true);
 				event.setJoinMessage(null);
 			}
 
@@ -78,7 +78,7 @@ public class ModModeListener implements Listener {
 	public void onPlayerQuit(PlayerQuitEvent event) {
 		Player player = event.getPlayer();
 
-		CONFIG.joinedVanished.remove(player.getUniqueId().toString());
+		PlayerStateCache.setJoinedVanished(player, false);
 
 		// Suppress quit messages when vanished.
 		if (ModMode.PLUGIN.isVanished(player)) {
@@ -88,8 +88,8 @@ public class ModModeListener implements Listener {
 		// For staff who can use ModMode, store the vanish state of Moderators
 		// in ModMode and Admins who are not in ModMode between logins.
 		if (player.hasPermission(Permissions.TOGGLE) &&
-			ModMode.PLUGIN.isModMode(player) != ModMode.PLUGIN.isAdmin(player)) {
-			ModMode.PLUGIN.setPersistentVanishState(player);
+			PlayerStateCache.inModMode(player) != ModMode.PLUGIN.isAdmin(player)) {
+			PlayerStateCache.setPersistentVanishState(player);
 			CONFIG.save();
 		}
 	}
@@ -110,7 +110,7 @@ public class ModModeListener implements Listener {
 	 */
 	@EventHandler
 	public void onPlayerDropItem(PlayerDropItemEvent event) {
-		if (ModMode.PLUGIN.isVanished(event.getPlayer()) || ModMode.PLUGIN.isModMode(event.getPlayer()))
+		if (ModMode.PLUGIN.isVanished(event.getPlayer()) || PlayerStateCache.inModMode(event.getPlayer()))
 			event.setCancelled(true);
 	}
 
@@ -125,7 +125,7 @@ public class ModModeListener implements Listener {
 			return;
 
 		Player player = (Player) event.getTarget();
-		if (ModMode.PLUGIN.isModMode(player) || ModMode.PLUGIN.isVanished(player))
+		if (PlayerStateCache.inModMode(player) || ModMode.PLUGIN.isVanished(player))
 			event.setCancelled(true);
 	}
 
@@ -142,11 +142,11 @@ public class ModModeListener implements Listener {
 			if (e.getDamager() instanceof Player && e.getEntity() instanceof Player) {
 				Player damager = (Player) e.getDamager();
 				Player victim = (Player) e.getEntity();
-				if (ModMode.PLUGIN.isModMode(damager) || ModMode.PLUGIN.isVanished(damager)) {
+				if (PlayerStateCache.inModMode(damager) || ModMode.PLUGIN.isVanished(damager)) {
 					event.setCancelled(true);
 				}
 				// only show message if they aren't invisible
-				else if (ModMode.PLUGIN.isModMode(victim) && !ModMode.PLUGIN.isVanished(victim)) {
+				else if (PlayerStateCache.inModMode(victim) && !ModMode.PLUGIN.isVanished(victim)) {
 					damager.sendMessage("This moderator is in ModMode.");
 					damager.sendMessage("ModMode should only be used for official server business.");
 					damager.sendMessage("Please let an admin know if a moderator is abusing ModMode.");
@@ -157,7 +157,7 @@ public class ModModeListener implements Listener {
 		// block all damage to invisible and modmode players
 		if (event.getEntity() instanceof Player) {
 			Player victim = (Player) event.getEntity();
-			if (ModMode.PLUGIN.isModMode(victim) || ModMode.PLUGIN.isVanished(victim)) {
+			if (PlayerStateCache.inModMode(victim) || ModMode.PLUGIN.isVanished(victim)) {
 				// Extinguish view-obscuring fires.
 				victim.setFireTicks(0);
 				event.setCancelled(true);
@@ -183,7 +183,7 @@ public class ModModeListener implements Listener {
 
 		if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
 			if (CONFIG.allowFlight) {
-				boolean flightState = ModMode.PLUGIN.isModMode(event.getPlayer());
+				boolean flightState = PlayerStateCache.inModMode(event.getPlayer());
 				event.getPlayer().setAllowFlight(flightState);
 			}
 		}
@@ -196,7 +196,7 @@ public class ModModeListener implements Listener {
 	@EventHandler(ignoreCancelled = true)
 	public void onPlayerGameModeChange(final PlayerGameModeChangeEvent event) {
 		Bukkit.getScheduler().runTask(ModMode.PLUGIN, () -> {
-			boolean flightState = ModMode.PLUGIN.isModMode(event.getPlayer());
+			boolean flightState = PlayerStateCache.inModMode(event.getPlayer());
 			ModMode.PLUGIN.restoreFlight(event.getPlayer(), flightState);
 		});
 	}
@@ -209,7 +209,7 @@ public class ModModeListener implements Listener {
 	public void onFoodLevelChange(FoodLevelChangeEvent event) {
 		if (event.getEntity() instanceof Player) {
 			Player player = (Player) event.getEntity();
-			if (ModMode.PLUGIN.isModMode(player)) {
+			if (PlayerStateCache.inModMode(player)) {
 				if (player.getFoodLevel() != 20) {
 					player.setFoodLevel(20);
 				}

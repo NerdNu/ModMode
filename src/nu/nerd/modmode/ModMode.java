@@ -140,49 +140,6 @@ public class ModMode extends JavaPlugin {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Return the persistent (cross login) vanish state.
-	 *
-	 * This means different things depending on whether the player could
-	 * normally vanish without being in ModMode. See the doc comment for
-	 * {@link Configuration#vanished}.
-	 *
-	 * @param player the player.
-	 * @return true if vanished.
-	 */
-	boolean getPersistentVanishState(Player player) {
-		return CONFIG.vanished.contains(player.getUniqueId().toString());
-	}
-
-	// ------------------------------------------------------------------------
-	/**
-	 * Save the current vanish state of the player as his persistent vanish
-	 * state.
-	 *
-	 * This means different things depending on whether the player could
-	 * normally vanish without being in ModMode. See the doc comment for
-	 * {@link Configuration#vanished}.
-	 */
-	void setPersistentVanishState(Player player) {
-		if (vanish.getManager().isVanished(player)) {
-			CONFIG.vanished.add(player.getUniqueId().toString());
-		} else {
-			CONFIG.vanished.remove(player.getUniqueId().toString());
-		}
-	}
-
-	// ------------------------------------------------------------------------
-	/**
-	 * Return true if the player is currently in ModMode.
-	 *
-	 * @param player the Player.
-	 * @return true if the player is currently in ModMode.
-	 */
-	boolean isModMode(Player player) {
-		return CONFIG.modmode.contains(player.getUniqueId().toString());
-	}
-
-	// ------------------------------------------------------------------------
-	/**
 	 * Return true if the player has Admin permissions.
 	 *
 	 * That is, the player has permissions in excess of those of the ModMode
@@ -455,16 +412,15 @@ public class ModMode extends JavaPlugin {
 			// When leaving ModMode, Admins return to their persistent vanish
 			// state; Moderators become visible
 			if (isAdmin(player)) {
-				setVanish(player, getPersistentVanishState(player));
+				setVanish(player, PlayerStateCache.getPersistentVanishState(player));
 			} else {
 				setVanish(player, false);
-				if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
-					getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
+				if (PlayerStateCache.joinedVanished(player)) {
+					//getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
 				}
 			}
 
-			CONFIG.modmode.remove(player.getName());
-			player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
+			PlayerStateCache.setModModeState(player, false);
 		} else {
 			if (CONFIG.usingbperms) {
 				// Clean up old mappings
@@ -486,16 +442,15 @@ public class ModMode extends JavaPlugin {
 				}
 			}
 
-			CONFIG.modmode.add(player.getUniqueId().toString());
+			PlayerStateCache.setModModeState(player, true);
 
 			// Always vanish when entering ModMode. Record the old vanish state
 			// for admins only.
 			if (isAdmin(player)) {
-				setPersistentVanishState(player);
+				PlayerStateCache.setPersistentVanishState(player);
 			}
 
 			setVanish(player, true);
-			player.sendMessage(ChatColor.RED + "You are now in ModMode!");
 		}
 
 		refreshWorldeditRegionsCache(player);
@@ -600,13 +555,8 @@ public class ModMode extends JavaPlugin {
 				return;
 			}
 
-			Player player = (Player)sender;
-			if (CONFIG.modmode.remove(player.getUniqueId().toString())) {
-				toggleModMode(player, false);
-			} else {
-				CONFIG.modmode.add(player.getUniqueId().toString());
-				toggleModMode(player, true);
-			}
+			Player player = (Player) sender;
+			PlayerStateCache.toggleModModeState(player);
 		} else if (args.length == 1 && (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload"))) {
 			if (!sender.hasPermission(Permissions.OP)) {
 				sender.sendMessage(ChatColor.RED + "You don't have permission to use /modmode op commands.");
