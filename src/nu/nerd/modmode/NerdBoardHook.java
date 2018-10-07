@@ -119,7 +119,7 @@ final class NerdBoardHook {
      * @param player the player.
      */
     static void reconcilePlayerWithVanishState(Player player) {
-        boolean inModMode = PlayerStateCache.inModMode(player);
+        boolean inModMode = ModMode.PLUGIN.isModMode(player);
         boolean isVanished = ModMode.PLUGIN.isVanished(player);
         Team team = inModMode ? _modModeTeam : (isVanished ? _vanishedTeam
                                                            : _defaultTeam);

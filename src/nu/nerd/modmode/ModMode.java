@@ -1,7 +1,5 @@
 package nu.nerd.modmode;
 
-import de.bananaco.bpermissions.api.ApiLayer;
-import de.bananaco.bpermissions.api.util.CalculableType;
 import nu.nerd.nerdboard.NerdBoard;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -27,9 +25,11 @@ import org.kitteh.vanish.VanishPlugin;
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 // ------------------------------------------------------------------------
 /**
@@ -41,6 +41,13 @@ public class ModMode extends JavaPlugin {
 	 * This plugin.
 	 */
 	static ModMode PLUGIN;
+
+	/**
+	 * The permissions handler.
+	 */
+	private static Permissions PERMISSIONS;
+
+	private static Node MOD_MODE_NODE;
 
 	/**
 	 * The vanish plugin.
@@ -58,9 +65,18 @@ public class ModMode extends JavaPlugin {
 	 */
 	@Override
 	public void onEnable() {
+		PLUGIN = this;
 
+		// instantiate the self-registering ModMode listener
 		new ModModeListener();
 
+		// instantiate permissions handler
+		PERMISSIONS = new Permissions();
+
+		// create global ModMode node
+		MOD_MODE_NODE = new Node(CONFIG.bPermsModModeGroup, null);
+
+		// find and load NerdBoard
 		NerdBoard nerdBoard = NerdBoardHook.getNerdBoard();
 		if (nerdBoard != null) {
 			new NerdBoardHook(nerdBoard);
@@ -102,21 +118,7 @@ public class ModMode extends JavaPlugin {
 		} else {
 			log("LogBlock is not loaded. Integration disabled.");
 		}
-
-		if (CONFIG.usingbperms) {
-			de.bananaco.bpermissions.imp.Permissions bPermsPlugin;
-
-			bPermsPlugin = (de.bananaco.bpermissions.imp.Permissions) getServer().getPluginManager().getPlugin("bPermissions");
-			if (bPermsPlugin == null || !(bPermsPlugin instanceof de.bananaco.bpermissions.imp.Permissions)) {
-				if (!bPermsPlugin.isEnabled()) {
-					getPluginLoader().enablePlugin(bPermsPlugin);
-				}
-				log("bperms turned on, but plugin could not be loaded.");
-				getPluginLoader().disablePlugin(this);
-			}
-		}
-
-	} // onEnable
+	}
 
 	// ------------------------------------------------------------------------
 	/**
@@ -126,6 +128,16 @@ public class ModMode extends JavaPlugin {
 	public void onDisable() {
 		HandlerList.unregisterAll(this);
 		CONFIG.save();
+	}
+
+	// ------------------------------------------------------------------------
+	/**
+	 * Returns the permissions handler.
+	 *
+	 * @return the permissions handler.
+	 */
+	static Permissions getPermissions() {
+		return PERMISSIONS;
 	}
 
 	// ------------------------------------------------------------------------
@@ -140,16 +152,45 @@ public class ModMode extends JavaPlugin {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Return true if the player has Admin permissions.
+	 * Return the persistent (cross login) vanish state.
 	 *
-	 * That is, the player has permissions in excess of those of the ModMode
-	 * permission group. This is a different concept from Permissions.OP,
-	 * which merely signifies that the player can administer this plugin.
+	 * This means different things depending on whether the player could
+	 * normally vanish without being in ModMode. See the doc comment for
+	 * {@link Configuration#vanished}.
 	 *
-	 * @return true for Admins, false for Moderators and default players.
+	 * @param player the player.
+	 * @return true if vanished.
 	 */
-	boolean isAdmin(Player player) {
-		return player.hasPermission(Permissions.ADMIN);
+	boolean getPersistentVanishState(Player player) {
+		return CONFIG.vanished.contains(player.getUniqueId().toString());
+	}
+
+	// ------------------------------------------------------------------------
+	/**
+	 * Save the current vanish state of the player as his persistent vanish
+	 * state.
+	 *
+	 * This means different things depending on whether the player could
+	 * normally vanish without being in ModMode. See the doc comment for
+	 * {@link Configuration#vanished}.
+	 */
+	void setPersistentVanishState(Player player) {
+		if (vanish.getManager().isVanished(player)) {
+			CONFIG.vanished.add(player.getUniqueId().toString());
+		} else {
+			CONFIG.vanished.remove(player.getUniqueId().toString());
+		}
+	}
+
+	// ------------------------------------------------------------------------
+	/**
+	 * Return true if the player is currently in ModMode.
+	 *
+	 * @param player the Player.
+	 * @return true if the player is currently in ModMode.
+	 */
+	boolean isModMode(Player player) {
+		return CONFIG.modmode.contains(player.getUniqueId().toString());
 	}
 
 	// ------------------------------------------------------------------------
@@ -391,66 +432,62 @@ public class ModMode extends JavaPlugin {
 		}
 
 		if (!enabled) {
-			if (CONFIG.usingbperms) {
-				List<org.bukkit.World> worlds = getServer().getWorlds();
-				for (org.bukkit.World world : worlds) {
-					if (CONFIG.bPermsWorlds.contains(world.getName())) {
-						List<String> groups = CONFIG.groupMap.getStringList(player.getUniqueId().toString() + "." + world.getName());
-						for (String group : groups) {
-							ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), group);
-						}
-						ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), CONFIG.bPermsModModeGroup);
+			// remove ModMode node
+			MOD_MODE_NODE.remove(player);
 
-						// If no groups, re-add moderator group
-						if (ApiLayer.getGroups(world.getName(), CalculableType.USER, player.getName()).length == 0) {
-							ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), CONFIG.bPermsModGroup);
-						}
-					}
-				}
-			}
+			// find the player's serialized nodes
+			List<String> loadedNodes = CONFIG.groupMap.getStringList(player.getUniqueId().toString());
+
+			// deserialize nodes and re-add
+			loadedNodes.stream()
+					   .map(Node::deserialize)
+					   .filter(Objects::nonNull)
+					   .forEach(node -> node.apply(player));
 
 			// When leaving ModMode, Admins return to their persistent vanish
 			// state; Moderators become visible
-			if (isAdmin(player)) {
-				setVanish(player, PlayerStateCache.getPersistentVanishState(player));
+			if (PERMISSIONS.isAdmin(player)) {
+				setVanish(player, getPersistentVanishState(player));
 			} else {
 				setVanish(player, false);
-				if (PlayerStateCache.joinedVanished(player)) {
-					//getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
+				if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
+					getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
 				}
 			}
 
-			PlayerStateCache.setModModeState(player, false);
+			CONFIG.modmode.remove(player.getName());
+			player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
 		} else {
-			if (CONFIG.usingbperms) {
-				// Clean up old mappings
-				CONFIG.groupMap.set(player.getUniqueId().toString(), null);
+			// Clean up old mappings
+			CONFIG.groupMap.set(player.getUniqueId().toString(), null);
 
-				List<org.bukkit.World> worlds = getServer().getWorlds();
-				for (org.bukkit.World world : worlds) {
-					if (CONFIG.bPermsWorlds.contains(world.getName().toLowerCase())) {
-						List<String> groups = Arrays.asList(ApiLayer.getGroups(world.getName(), CalculableType.USER, player.getName()));
-						groups.remove(CONFIG.bPermsModModeGroup);
-						CONFIG.groupMap.set(player.getUniqueId().toString() + "." + world.getName(), groups);
-						for (String group : groups) {
-							if (!containsIgnoreCase(CONFIG.bPermsKeepGroups, group)) {
-								ApiLayer.removeGroup(world.getName(), CalculableType.USER, player.getName(), group);
-							}
-						}
-						ApiLayer.addGroup(world.getName(), CalculableType.USER, player.getName(), CONFIG.bPermsModModeGroup);
-					}
-				}
-			}
+			// get player's current permission nodes
+			HashSet<Node> nodes = PERMISSIONS.getNodes(player, Configuration.PERMISSION_WORLDS);
 
-			PlayerStateCache.setModModeState(player, true);
+			// remove all nodes that are not configured to be persistent
+			nodes.stream()
+				 .filter(node -> !CONFIG.bPermsKeepGroups.contains(node.getName()))
+				 .forEach(node -> node.remove(player));
+
+			// serialize the player's nodes
+			List<String> serializedNodes = nodes.stream()
+												.map(Node::serialize)
+												.collect(Collectors.toList());
+			CONFIG.groupMap.set(player.getUniqueId().toString(), serializedNodes);
+
+			// apply the ModMode node
+			MOD_MODE_NODE.apply(player);
+
+			CONFIG.modmode.add(player.getUniqueId().toString());
 
 			// Always vanish when entering ModMode. Record the old vanish state
 			// for admins only.
-			if (isAdmin(player)) {
-				PlayerStateCache.setPersistentVanishState(player);
+			if (PERMISSIONS.isAdmin(player)) {
+				setPersistentVanishState(player);
 			}
 
 			setVanish(player, true);
+			player.sendMessage(ChatColor.RED + "You are now in ModMode!");
 		}
 
 		refreshWorldeditRegionsCache(player);
@@ -555,8 +592,13 @@ public class ModMode extends JavaPlugin {
 				return;
 			}
 
-			Player player = (Player) sender;
-			PlayerStateCache.toggleModModeState(player);
+			Player player = (Player)sender;
+			if (CONFIG.modmode.remove(player.getUniqueId().toString())) {
+				toggleModMode(player, false);
+			} else {
+				CONFIG.modmode.add(player.getUniqueId().toString());
+				toggleModMode(player, true);
+			}
 		} else if (args.length == 1 && (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload"))) {
 			if (!sender.hasPermission(Permissions.OP)) {
 				sender.sendMessage(ChatColor.RED + "You don't have permission to use /modmode op commands.");

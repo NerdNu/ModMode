@@ -1,11 +1,17 @@
 package nu.nerd.modmode;
 
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 // ------------------------------------------------------------------------
 /**
@@ -35,8 +41,9 @@ class Configuration {
         ModMode.PLUGIN.reloadConfig();
         _config = ModMode.PLUGIN.getConfig();
 
-        PlayerStateCache.load(_config);
-
+        vanished = new TreeSet<>(_config.getStringList("vanished"));
+        modmode = new HashSet<>(_config.getStringList("modmode"));
+        joinedVanished = new HashMap<>();
         allowFlight = _config.getBoolean("allow.flight", true);
 
         NerdBoardHook.setAllowCollisions(_config.getBoolean("allow.collisions", true));
@@ -44,6 +51,11 @@ class Configuration {
         usingbperms = _config.getBoolean("bperms.enabled", false);
         bPermsKeepGroups = new HashSet<>(_config.getStringList("bperms.keepgroups"));
         bPermsWorlds = new HashSet<>(_config.getStringList("bperms.worlds"));
+
+        PERMISSION_WORLDS.clear();
+        _config.getStringList("bperms.worlds").stream()
+                                              .map(Bukkit::getWorld)
+                                              .forEach(PERMISSION_WORLDS::add);
 
         if (bPermsWorlds.isEmpty()) {
             bPermsWorlds.add("world");
@@ -69,8 +81,8 @@ class Configuration {
      * Save the configuration.
      */
     void save() {
-        PlayerStateCache.serialize(_config);
-
+        _config.set("vanished", new ArrayList<>(vanished));
+        _config.set("modmode", modmode.toArray());
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
         _config.set("bperms.enabled", usingbperms);
@@ -81,6 +93,26 @@ class Configuration {
         ModMode.PLUGIN.saveConfig();
     }
 
+    /**
+     * For Moderators in ModMode, this is persistent storage for their vanish
+     * state when they log out. Moderators out of ModMode are assumed to always
+     * be visible.
+     *
+     * For Admins who can vanish without transitioning into ModMode, this
+     * variable stores their vanish state between logins only when not in
+     * ModMode. If they log out in ModMode, they are re-vanished automatically
+     * when they log in. When they leave ModMode, their vanish state is set
+     * according to membership in this set.
+     *
+     * This is NOT the set of currently vanished players, which is instead
+     * maintained by the VanishNoPacket plugin.
+     */
+    Set<String> vanished;
+
+
+    Set<String> modmode;
+
+    Map<String, String> joinedVanished;
     boolean allowFlight;
 
     boolean usingbperms;
@@ -99,6 +131,8 @@ class Configuration {
     String bPermsModModeGroup;
     Set<String> bPermsKeepGroups;
     Set<String> bPermsWorlds;
+
+    static final HashSet<World> PERMISSION_WORLDS = new HashSet<>();
 
     /**
      * When entering ModMode, a staff member in any of bPermsModGroups (e.g.

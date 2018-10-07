@@ -6,7 +6,7 @@ authors: [Travis Watkins, Deaygo]
 website: ${project.url}
 
 main: nu.nerd.modmode.ModMode
-softdepend: [bPermissions, TagAPI, LogBlock]
+softdepend: [LuckPerms, TagAPI, LogBlock]
 depend: [VanishNoPacket, NerdBoard]
 
 api-version: 1.13
