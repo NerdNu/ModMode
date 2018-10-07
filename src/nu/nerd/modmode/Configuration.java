@@ -48,7 +48,6 @@ class Configuration {
 
         NerdBoardHook.setAllowCollisions(_config.getBoolean("allow.collisions", true));
 
-        usingbperms = _config.getBoolean("bperms.enabled", false);
         bPermsKeepGroups = new HashSet<>(_config.getStringList("bperms.keepgroups"));
         bPermsWorlds = new HashSet<>(_config.getStringList("bperms.worlds"));
 
@@ -85,7 +84,6 @@ class Configuration {
         _config.set("modmode", modmode.toArray());
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
-        _config.set("bperms.enabled", usingbperms);
         _config.set("bperms.keepgroups", bPermsKeepGroups.toArray());
         _config.set("bperms.worlds", bPermsWorlds.toArray());
         _config.set("bperms.modmodegroup", bPermsModModeGroup);
@@ -114,8 +112,6 @@ class Configuration {
 
     Map<String, String> joinedVanished;
     boolean allowFlight;
-
-    boolean usingbperms;
 
     /**
      * If true, player data loads and saves are logged to the console.

@@ -1,6 +1,5 @@
 package nu.nerd.modmode;
 
-import com.sun.istack.internal.Nullable;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -31,7 +30,7 @@ public class Node {
      * @param name the name of the node, e.g. the name of the group.
      * @param world the world in which this node should apply (null for global).
      */
-    Node(String name, @Nullable World world) {
+    Node(String name, World world) {
         _name = name;
         _world = world;
     }

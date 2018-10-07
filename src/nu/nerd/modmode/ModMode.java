@@ -23,9 +23,6 @@ import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 
 import java.io.File;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -490,8 +487,6 @@ public class ModMode extends JavaPlugin {
 			player.sendMessage(ChatColor.RED + "You are now in ModMode!");
 		}
 
-		refreshWorldeditRegionsCache(player);
-
 		// Update the permissions that VanishNoPacket caches to match the new
 		// permissions of the player. This is highly dependent on this API
 		// method not doing anything more than what it currently does:
@@ -660,54 +655,6 @@ public class ModMode extends JavaPlugin {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Returns true if the given collection contains the given string.
-	 *
-	 * @param targetList the target collection.
-	 * @param search the target string.
-	 * @return true if the given collection contains the given string.
-	 */
-	private static boolean containsIgnoreCase(Collection<String> targetList, String search) {
-		for (String target : targetList) {
-			if (target.equalsIgnoreCase(search)) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
-	// ------------------------------------------------------------------------
-	/**
-	 * WorldeditRegions tends to cache player permission. This causes
-	 * breakage when a player changes world or their permissions change
-	 * on the fly, especially wrg.bypass
-	 * 
-	 * Reflection is used for now so no runtime OR compile time dependencies
-	 * on WorldeditRegions is required.
-	 * 
-	 * @param player The player to update
-	 */
-	static void refreshWorldeditRegionsCache(Player player) {
-		try {
-			Class<?> clazz = Class.forName("com.empcraft.wrg.util.RegionHandler");
-
-			Method method;
-			method = clazz.getMethod("unregisterPlayer", Player.class);
-			method.invoke(null, player);
-			method = clazz.getMethod("refreshPlayer", Player.class);
-			method.invoke(null, player);
-		} catch (ClassNotFoundException e) { // this is normal if the plugin is not loaded
-		} catch (NoSuchMethodException e) {
-			log(e.getClass().getName() + " Cannot find public static void com.empcraft.wrg.util.RegionHandler.refreshPlayer(final Player player)");
-		} catch (IllegalAccessException | InvocationTargetException e) {
-			log(e.getClass().getName() + " Could not invoke com.empcraft.wrg.util.RegionHandler.refreshPlayer");
-		} catch (Exception e) { // catch-all
-			log(e.toString());
-		}
-	}
-
-	// ------------------------------------------------------------------------
-	/**
 	 * A logging method used instead of {@link java.util.logging.Logger} to
 	 * faciliate prefix coloring.
 	 *
@@ -721,7 +668,6 @@ public class ModMode extends JavaPlugin {
 	/**
 	 * This plugin's prefix as a string; for logging.
 	 */
-	private static final String PREFIX = ChatColor.WHITE + "[" + ChatColor.GREEN
-											 + "ModMode" + ChatColor.WHITE + "] ";
+	private static final String PREFIX = ChatColor.WHITE + "[" + ChatColor.GREEN + "ModMode" + ChatColor.WHITE + "] ";
 
 } // ModMode

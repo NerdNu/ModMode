@@ -172,19 +172,11 @@ public class ModModeListener implements Listener {
 	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onPlayerChangeWorld(PlayerChangedWorldEvent event) {
-		
-		final Player player = event.getPlayer();
-		if (player.hasPermission(Permissions.TOGGLE)) {
-			// update the player WorldeditCache after a necessary delay
-			Bukkit.getScheduler().runTaskLater(ModMode.PLUGIN, () -> {
-				ModMode.refreshWorldeditRegionsCache(player);
-			}, 10);
-		}
-
-		if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
+		Player player = event.getPlayer();
+		if (player.getGameMode() != GameMode.CREATIVE) {
 			if (CONFIG.allowFlight) {
-				boolean flightState = ModMode.PLUGIN.isModMode(event.getPlayer());
-				event.getPlayer().setAllowFlight(flightState);
+				boolean flightState = ModMode.PLUGIN.isModMode(player);
+				player.setAllowFlight(flightState);
 			}
 		}
 	}
@@ -195,9 +187,10 @@ public class ModModeListener implements Listener {
 	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onPlayerGameModeChange(final PlayerGameModeChangeEvent event) {
+		Player player = event.getPlayer();
 		Bukkit.getScheduler().runTask(ModMode.PLUGIN, () -> {
-			boolean flightState = ModMode.PLUGIN.isModMode(event.getPlayer());
-			ModMode.PLUGIN.restoreFlight(event.getPlayer(), flightState);
+			boolean flightState = ModMode.PLUGIN.isModMode(player);
+			ModMode.PLUGIN.restoreFlight(player, flightState);
 		});
 	}
 
