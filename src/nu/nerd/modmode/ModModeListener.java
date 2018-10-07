@@ -48,11 +48,11 @@ public class ModModeListener implements Listener {
 			if (ModMode.getPermissions().isAdmin(player)) {
 				// Admins log in vanished if they logged out vanished, or if
 				// they logged out in ModMode (vanished or not).
-				vanished = ModMode.PLUGIN.getPersistentVanishState(player) || inModMode;
+				vanished = Configuration.loggedOutVanished(player) || inModMode;
 			} else {
 				// Moderators log in vanished if they must have logged out in
 				// ModMode while vanished.
-				vanished = inModMode && ModMode.PLUGIN.getPersistentVanishState(player);
+				vanished = inModMode && Configuration.loggedOutVanished(player);
 			}
 
 			if (vanished) {
@@ -80,15 +80,14 @@ public class ModModeListener implements Listener {
 
 		CONFIG.joinedVanished.remove(player.getUniqueId().toString());
 
-		// Suppress quit messages when vanished.
+		// Suppress quit messages when LOGGED_OUT_VANISHED.
 		if (ModMode.PLUGIN.isVanished(player)) {
 			event.setQuitMessage(null);
 		}
 
 		// For staff who can use ModMode, store the vanish state of Moderators
 		// in ModMode and Admins who are not in ModMode between logins.
-		if (player.hasPermission(Permissions.TOGGLE) &&
-			ModMode.PLUGIN.isModMode(player) != ModMode.getPermissions().isAdmin(player)) {
+		if (player.hasPermission(Permissions.TOGGLE) && ModMode.PLUGIN.isModMode(player) != ModMode.getPermissions().isAdmin(player)) {
 			ModMode.PLUGIN.setPersistentVanishState(player);
 			CONFIG.save();
 		}
@@ -96,7 +95,7 @@ public class ModModeListener implements Listener {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Disallows vanished players from picking up items.
+	 * Disallows LOGGED_OUT_VANISHED players from picking up items.
 	 */
 	@EventHandler(ignoreCancelled = true)
 	public void onPlayerPickupItem(PlayerPickupItemEvent event) {
@@ -106,7 +105,7 @@ public class ModModeListener implements Listener {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Disallows vanished players and players in ModMode from dropping items.
+	 * Disallows LOGGED_OUT_VANISHED players and players in ModMode from dropping items.
 	 */
 	@EventHandler
 	public void onPlayerDropItem(PlayerDropItemEvent event) {
@@ -116,7 +115,7 @@ public class ModModeListener implements Listener {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Disallows entities from targeting vanished players and players in
+	 * Disallows entities from targeting LOGGED_OUT_VANISHED players and players in
 	 * ModMode, e.g. hostile mobs, parrots.
 	 */
 	@EventHandler
@@ -131,7 +130,7 @@ public class ModModeListener implements Listener {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Disallows vanished players and players in ModMode from damaging other
+	 * Disallows LOGGED_OUT_VANISHED players and players in ModMode from damaging other
 	 * players.
 	 */
 	@EventHandler

@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,7 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.UUID;
 
 // ------------------------------------------------------------------------
 /**
@@ -34,14 +35,45 @@ class Configuration {
 
     // ------------------------------------------------------------------------
     /**
+     * Returns true if the given player logged out while vanished.
+     *
+     * @param player the player.
+     * @return true if the given player logged out while vanished.
+     */
+    static synchronized boolean loggedOutVanished(Player player) {
+        return LOGGED_OUT_VANISHED.contains(player.getUniqueId());
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Sets the player's logged-out-vanished state to the given state.
+     *
+     * @param player the player.
+     * @param state the new state.
+     */
+    static synchronized void setLoggedOutVanished(Player player, boolean state) {
+        if (state) {
+            LOGGED_OUT_VANISHED.add(player.getUniqueId());
+        } else {
+            LOGGED_OUT_VANISHED.remove(player.getUniqueId());
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
      * Load the configuration.
      */
-    void reload() {
+    synchronized void reload() {
         ModMode.PLUGIN.saveDefaultConfig();
         ModMode.PLUGIN.reloadConfig();
         _config = ModMode.PLUGIN.getConfig();
 
-        vanished = new TreeSet<>(_config.getStringList("vanished"));
+        // clear logged-out-vanished list and repopulate from config
+        LOGGED_OUT_VANISHED.clear();
+        _config.getStringList("logged-out-vanished").stream()
+                                                    .map(UUID::fromString)
+                                                    .forEach(LOGGED_OUT_VANISHED::add);
+
         modmode = new HashSet<>(_config.getStringList("modmode"));
         joinedVanished = new HashMap<>();
         allowFlight = _config.getBoolean("allow.flight", true);
@@ -79,8 +111,8 @@ class Configuration {
     /**
      * Save the configuration.
      */
-    void save() {
-        _config.set("vanished", new ArrayList<>(vanished));
+    synchronized void save() {
+        _config.set("logged-out-vanished", new ArrayList<>(LOGGED_OUT_VANISHED));
         _config.set("modmode", modmode.toArray());
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
@@ -105,7 +137,7 @@ class Configuration {
      * This is NOT the set of currently vanished players, which is instead
      * maintained by the VanishNoPacket plugin.
      */
-    Set<String> vanished;
+    private static final Set<UUID> LOGGED_OUT_VANISHED = new HashSet<>();
 
 
     Set<String> modmode;

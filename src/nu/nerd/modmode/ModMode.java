@@ -139,9 +139,9 @@ public class ModMode extends JavaPlugin {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Return true if the player is currently vanished.
+	 * Return true if the player is currently LOGGED_OUT_VANISHED.
 	 *
-	 * @return true if the player is currently vanished.
+	 * @return true if the player is currently LOGGED_OUT_VANISHED.
 	 */
 	boolean isVanished(Player player) {
 		return vanish.getManager().isVanished(player);
@@ -149,34 +149,15 @@ public class ModMode extends JavaPlugin {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Return the persistent (cross login) vanish state.
-	 *
-	 * This means different things depending on whether the player could
-	 * normally vanish without being in ModMode. See the doc comment for
-	 * {@link Configuration#vanished}.
-	 *
-	 * @param player the player.
-	 * @return true if vanished.
-	 */
-	boolean getPersistentVanishState(Player player) {
-		return CONFIG.vanished.contains(player.getUniqueId().toString());
-	}
-
-	// ------------------------------------------------------------------------
-	/**
-	 * Save the current vanish state of the player as his persistent vanish
+	 * Save the current vanish state of the player as their persistent vanish
 	 * state.
 	 *
 	 * This means different things depending on whether the player could
 	 * normally vanish without being in ModMode. See the doc comment for
-	 * {@link Configuration#vanished}.
+	 * {@link Configuration#LOGGED_OUT_VANISHED}.
 	 */
 	void setPersistentVanishState(Player player) {
-		if (vanish.getManager().isVanished(player)) {
-			CONFIG.vanished.add(player.getUniqueId().toString());
-		} else {
-			CONFIG.vanished.remove(player.getUniqueId().toString());
-		}
+		Configuration.setLoggedOutVanished(player, vanish.getManager().isVanished(player));
 	}
 
 	// ------------------------------------------------------------------------
@@ -195,7 +176,7 @@ public class ModMode extends JavaPlugin {
 	 * Set the vanish state of the player.
 	 *
 	 * @param player the Player.
-	 * @param vanished true if he should be vanished.
+	 * @param vanished true if he should be LOGGED_OUT_VANISHED.
 	 */
 	void setVanish(Player player, boolean vanished) {
 		if (vanish.getManager().isVanished(player) != vanished) {
@@ -219,7 +200,7 @@ public class ModMode extends JavaPlugin {
 
 	// ------------------------------------------------------------------------
 	/**
-	 * Sends a list of currently-vanished players to the given CommandSender.
+	 * Sends a list of currently-LOGGED_OUT_VANISHED players to the given CommandSender.
 	 *
 	 * @param sender the CommandSender.
 	 */
@@ -444,7 +425,7 @@ public class ModMode extends JavaPlugin {
 			// When leaving ModMode, Admins return to their persistent vanish
 			// state; Moderators become visible
 			if (PERMISSIONS.isAdmin(player)) {
-				setVanish(player, getPersistentVanishState(player));
+				setVanish(player, Configuration.loggedOutVanished(player));
 			} else {
 				setVanish(player, false);
 				if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
@@ -477,8 +458,7 @@ public class ModMode extends JavaPlugin {
 
 			CONFIG.modmode.add(player.getUniqueId().toString());
 
-			// Always vanish when entering ModMode. Record the old vanish state
-			// for admins only.
+			// Always vanish when entering ModMode. Record the old vanish state for admins only.
 			if (PERMISSIONS.isAdmin(player)) {
 				setPersistentVanishState(player);
 			}
@@ -555,10 +535,10 @@ public class ModMode extends JavaPlugin {
 		Player player = (Player) sender;
 		if (command.getName().equalsIgnoreCase("vanish")) {
 			if (args.length > 0 && args[0].equalsIgnoreCase("check")) {
-				String vanishText = isVanished(player) ? "vanished." : "visible.";
+				String vanishText = isVanished(player) ? "LOGGED_OUT_VANISHED." : "visible.";
 				player.sendMessage(ChatColor.DARK_AQUA + "You are " + vanishText);
 			} else if (isVanished(player)) {
-				player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
+				player.sendMessage(ChatColor.DARK_AQUA + "You are already LOGGED_OUT_VANISHED.");
 			} else {
 				setVanish(player, true);
 				NerdBoardHook.reconcilePlayerWithVanishState(player);
