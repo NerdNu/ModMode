@@ -82,7 +82,7 @@ public class Node {
      * @return a string representing this node for YAML serialization.
      */
     String serialize() {
-        return _name + ":" + _world.getName();
+        return _name + ":" + (_world != null ? _world.getName() : "global");
     }
 
     // ------------------------------------------------------------------------

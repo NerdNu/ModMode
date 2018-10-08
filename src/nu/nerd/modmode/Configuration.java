@@ -150,7 +150,7 @@ class Configuration {
         // store reference to the serialized nodes configuration section
         SERIALIZED_NODES = _config.getConfigurationSection("serialized-nodes");
         if (SERIALIZED_NODES == null) {
-            _config.createSection("serialized-nodes");
+            SERIALIZED_NODES = _config.createSection("serialized-nodes");
         }
 
         MODERATOR_GROUP = _config.getString("permissions.moderator-group", "moderators");

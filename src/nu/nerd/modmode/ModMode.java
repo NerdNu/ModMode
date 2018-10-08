@@ -61,7 +61,7 @@ public class ModMode extends JavaPlugin {
 	/**
 	 * This plugin's configuration.
 	 */
-	static final Configuration CONFIG = new Configuration();
+	static Configuration CONFIG;
 
 	// ------------------------------------------------------------------------
 	/**
@@ -70,15 +70,6 @@ public class ModMode extends JavaPlugin {
 	@Override
 	public void onEnable() {
 		PLUGIN = this;
-
-		// instantiate the self-registering ModMode listener
-		new ModModeListener();
-
-		// instantiate permissions handler
-		PERMISSIONS = new Permissions();
-
-		// create global ModMode node
-		MOD_MODE_NODE = new Node(CONFIG.MODMODE_GROUP, null);
 
 		// find and load NerdBoard
 		NerdBoard nerdBoard = NerdBoardHook.getNerdBoard();
@@ -122,6 +113,18 @@ public class ModMode extends JavaPlugin {
 		} else {
 			log("LogBlock is not loaded. Integration disabled.");
 		}
+
+		CONFIG = new Configuration();
+
+		// instantiate the self-registering ModMode listener
+		new ModModeListener();
+
+		// instantiate permissions handler
+		PERMISSIONS = new Permissions();
+
+		// create global ModMode node
+		MOD_MODE_NODE = new Node(CONFIG.MODMODE_GROUP, null);
+
 	}
 
 	// ------------------------------------------------------------------------
