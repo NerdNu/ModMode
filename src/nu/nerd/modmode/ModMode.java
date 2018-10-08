@@ -44,7 +44,15 @@ public class ModMode extends JavaPlugin {
 	 */
 	private static Permissions PERMISSIONS;
 
+	/**
+	 * The global ModMode node, built when configuration is loaded.
+	 */
 	private static Node MOD_MODE_NODE;
+
+	/**
+	 * A cache of players (UUIDs) currently in ModMode.
+	 */
+	static final AbstractPlayerCache MODMODE_CACHE = new AbstractPlayerCache("modmode");
 
 	/**
 	 * The vanish plugin.
@@ -137,6 +145,10 @@ public class ModMode extends JavaPlugin {
 		return PERMISSIONS;
 	}
 
+	static AbstractPlayerCache getModModeCache() {
+		return MODMODE_CACHE;
+	}
+
 	// ------------------------------------------------------------------------
 	/**
 	 * Return true if the player is currently LOGGED_OUT_VANISHED.
@@ -167,8 +179,8 @@ public class ModMode extends JavaPlugin {
 	 * @param player the Player.
 	 * @return true if the player is currently in ModMode.
 	 */
-	boolean isModMode(Player player) {
-		return CONFIG.modmode.contains(player.getUniqueId().toString());
+	synchronized boolean isModMode(Player player) {
+		return MODMODE_CACHE.contains(player);
 	}
 
 	// ------------------------------------------------------------------------
@@ -433,7 +445,9 @@ public class ModMode extends JavaPlugin {
 				}
 			}
 
-			CONFIG.modmode.remove(player.getName());
+			// remove from ModMode cache
+			MODMODE_CACHE.remove(player);
+
 			player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
 		} else {
 			// Clean up old mappings
@@ -456,7 +470,8 @@ public class ModMode extends JavaPlugin {
 			// apply the ModMode node
 			MOD_MODE_NODE.apply(player);
 
-			CONFIG.modmode.add(player.getUniqueId().toString());
+			// add to ModMode cache
+			MODMODE_CACHE.add(player);
 
 			// Always vanish when entering ModMode. Record the old vanish state for admins only.
 			if (PERMISSIONS.isAdmin(player)) {
@@ -563,16 +578,9 @@ public class ModMode extends JavaPlugin {
 	 */
 	private void cmdModMode(CommandSender sender, String[] args) {
 		if (args.length == 0) {
-			if (!isInGame(sender)) {
-				return;
-			}
-
-			Player player = (Player)sender;
-			if (CONFIG.modmode.remove(player.getUniqueId().toString())) {
-				toggleModMode(player, false);
-			} else {
-				CONFIG.modmode.add(player.getUniqueId().toString());
-				toggleModMode(player, true);
+			if (isInGame(sender)) {
+				Player player = (Player) sender;
+				toggleModMode(player, !isModMode(player));
 			}
 		} else if (args.length == 1 && (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload"))) {
 			if (!sender.hasPermission(Permissions.OP)) {

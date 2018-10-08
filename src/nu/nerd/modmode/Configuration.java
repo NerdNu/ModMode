@@ -74,7 +74,9 @@ class Configuration {
                                                     .map(UUID::fromString)
                                                     .forEach(LOGGED_OUT_VANISHED::add);
 
-        modmode = new HashSet<>(_config.getStringList("modmode"));
+        // clear modmode set and repopulate from config
+        ModMode.getModModeCache().load(_config);
+
         joinedVanished = new HashMap<>();
         allowFlight = _config.getBoolean("allow.flight", true);
 
@@ -113,7 +115,7 @@ class Configuration {
      */
     synchronized void save() {
         _config.set("logged-out-vanished", new ArrayList<>(LOGGED_OUT_VANISHED));
-        _config.set("modmode", modmode.toArray());
+        ModMode.getModModeCache().save(_config);
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
         _config.set("bperms.keepgroups", bPermsKeepGroups.toArray());
@@ -138,9 +140,6 @@ class Configuration {
      * maintained by the VanishNoPacket plugin.
      */
     private static final Set<UUID> LOGGED_OUT_VANISHED = new HashSet<>();
-
-
-    Set<String> modmode;
 
     Map<String, String> joinedVanished;
     boolean allowFlight;
