@@ -1,15 +1,7 @@
-vanished: []
-fullvanished: []
-modmode: []
 allow:
   flight: true
   collisions: true
-bperms:
-  enabled: true
-  modmodegroup: ModMode
-groupmap: !!map {}
-debug:
-  playerdata: false
+
 commands:
   activate:
     before: []
@@ -20,3 +12,13 @@ commands:
     before: []
     after: []
 
+debug:
+  playerdata: false
+
+permissions:
+  modmode-group: ModMode
+  moderator-group: moderators
+  persistent-groups:
+  # - example.group:world_the_end
+  # - a.persistent.group:global
+  worlds: []

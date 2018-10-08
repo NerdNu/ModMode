@@ -96,8 +96,12 @@ public class Node {
     static Node deserialize(String node) {
         String[] parts = node.split(":");
         try {
-            World world = Bukkit.getWorld(parts[1]);
-            return new Node(parts[0], world);
+            if (parts[1] == null || parts[1].equalsIgnoreCase("global")) {
+                return new Node(parts[0], null);
+            } else {
+                World world = Bukkit.getWorld(parts[1]);
+                return new Node(parts[0], world);
+            }
         } catch (Exception e) {
             // failed to deserialize
             e.printStackTrace();

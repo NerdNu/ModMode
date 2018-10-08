@@ -7,12 +7,15 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 // ------------------------------------------------------------------------
 /**
@@ -25,12 +28,61 @@ class Configuration {
      */
     private FileConfiguration _config;
 
+    /**
+     * A predicate which tests if a given node is configured to be persistent
+     * across ModMode toggles.
+     */
+    public static final Predicate<Node> IS_PERSISTENT_NODE = new Predicate<Node>() {
+        @Override
+        public boolean test(Node node) {
+            return PERSISTENT_NODES.contains(node);
+        }
+    };
+
     // ------------------------------------------------------------------------
     /**
      * Constructor.
      */
     Configuration() {
         reload();
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Returns the given player's serialized nodes. If none exist, an empty
+     * List will be returned.
+     *
+     * @param player the player.
+     * @return the player's serialized nodes; if none, an empty list.
+     */
+    static List<String> getSerializedNodes(Player player) {
+        String playerUuid = player.getUniqueId().toString();
+        return new ArrayList<>(SERIALIZED_NODES.getStringList(playerUuid));
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Serializes the given nodes for the given player.
+     *
+     * @param player the player.
+     * @param nodes the nodes to serialize.
+     */
+    static void serializeNodes(Player player, Collection<Node> nodes) {
+        List<String> serializedNodes = nodes.stream()
+                                            .map(Node::serialize)
+                                            .collect(Collectors.toList());
+        SERIALIZED_NODES.set(player.getUniqueId().toString(), serializedNodes);
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Sanitizes the configuration file by removing artifacts from the player's
+     * last ModMode toggle.
+     *
+     * @param player the player.
+     */
+    static void sanitizeSerializedNodes(Player player) {
+        SERIALIZED_NODES.set(player.getUniqueId().toString(), null);
     }
 
     // ------------------------------------------------------------------------
@@ -74,33 +126,36 @@ class Configuration {
                                                     .map(UUID::fromString)
                                                     .forEach(LOGGED_OUT_VANISHED::add);
 
-        // clear modmode set and repopulate from config
+        // reload modmode cache
         ModMode.getModModeCache().load(_config);
 
         joinedVanished = new HashMap<>();
         allowFlight = _config.getBoolean("allow.flight", true);
 
+        // update collisions for players in ModMode
         NerdBoardHook.setAllowCollisions(_config.getBoolean("allow.collisions", true));
 
-        bPermsKeepGroups = new HashSet<>(_config.getStringList("bperms.keepgroups"));
-        bPermsWorlds = new HashSet<>(_config.getStringList("bperms.worlds"));
+        // load persistent nodes
+        List<String> persistentNodes = _config.getStringList("permissions.persistent-nodes");
+        PERSISTENT_NODES = persistentNodes.stream()
+                                           .map(Node::deserialize)
+                                           .collect(Collectors.toSet());
 
-        PERMISSION_WORLDS.clear();
-        _config.getStringList("bperms.worlds").stream()
-                                              .map(Bukkit::getWorld)
-                                              .forEach(PERMISSION_WORLDS::add);
+        // load permission worlds
+        PERMISSION_WORLDS = _config.getStringList("permissions.worlds")
+                                   .stream()
+                                   .map(Bukkit::getWorld)
+                                   .collect(Collectors.toCollection(HashSet::new));
 
-        if (bPermsWorlds.isEmpty()) {
-            bPermsWorlds.add("world");
+        // store reference to the serialized nodes configuration section
+        SERIALIZED_NODES = _config.getConfigurationSection("serialized-nodes");
+        if (SERIALIZED_NODES == null) {
+            _config.createSection("serialized-nodes");
         }
 
-        groupMap = _config.getConfigurationSection("groupmap");
-        if (groupMap == null) {
-            _config.createSection("groupmap");
-        }
+        MODERATOR_GROUP = _config.getString("permissions.moderator-group", "moderators");
+        MODMODE_GROUP = _config.getString("permissions.modmode-group", "ModMode");
 
-        bPermsModGroup = _config.getString("bperms.modgroup", "moderators");
-        bPermsModModeGroup = _config.getString("bperms.modmodegroup", "ModMode");
         debugPlayerData = _config.getBoolean("debug.playerdata");
 
         beforeActivationCommands = _config.getStringList("commands.activate.before");
@@ -118,10 +173,14 @@ class Configuration {
         ModMode.getModModeCache().save(_config);
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
-        _config.set("bperms.keepgroups", bPermsKeepGroups.toArray());
-        _config.set("bperms.worlds", bPermsWorlds.toArray());
-        _config.set("bperms.modmodegroup", bPermsModModeGroup);
-        _config.set("bperms.modgroup", bPermsModGroup);
+        _config.set("permissions.persistent-nodes", PERSISTENT_NODES.stream()
+                                                                    .map(Node::serialize)
+                                                                    .collect(Collectors.toList()));
+        _config.set("permissions.worlds", PERMISSION_WORLDS.stream()
+                                                           .map(World::getName)
+                                                           .collect(Collectors.toList()));
+        _config.set("permissions.modmode-group", MODMODE_GROUP);
+        _config.set("permissions.moderator-group", MODERATOR_GROUP);
         ModMode.PLUGIN.saveConfig();
     }
 
@@ -139,9 +198,13 @@ class Configuration {
      * This is NOT the set of currently vanished players, which is instead
      * maintained by the VanishNoPacket plugin.
      */
-    private static final Set<UUID> LOGGED_OUT_VANISHED = new HashSet<>();
+    private static Set<UUID> LOGGED_OUT_VANISHED = new HashSet<>();
 
     Map<String, String> joinedVanished;
+
+    /**
+     * If true, players in ModMode will be able to fly.
+     */
     boolean allowFlight;
 
     /**
@@ -150,25 +213,37 @@ class Configuration {
     boolean debugPlayerData;
 
     /**
-     * The set of all possible permissions groups who can transition into
-     * ModMode, e.g. Moderators, PAdmins, SAdmins, etc. These must be
-     * mutually-exclusive; you can't be a Moderator and a PAdmin.
+     * The name of the moderator permission group.
      */
-    String bPermsModGroup;
-    String bPermsModModeGroup;
-    Set<String> bPermsKeepGroups;
-    Set<String> bPermsWorlds;
-
-    static final HashSet<World> PERMISSION_WORLDS = new HashSet<>();
+    String MODERATOR_GROUP;
 
     /**
-     * When entering ModMode, a staff member in any of bPermsModGroups (e.g.
-     * Moderators, PAdmins, etc.) will have that group removed and the "ModMode"
-     * permission group added. We use this section of the configuration file as
-     * a map from player name to removed group name, so that the normal group
-     * can be restored when they leave ModMode.
+     * The name of the ModMode permission group.
      */
-    ConfigurationSection groupMap;
+    String MODMODE_GROUP;
+
+    /**
+     * A set of nodes which should be retained when entering ModMode.
+     */
+    private static Set<Node> PERSISTENT_NODES = new HashSet<>();
+
+    /**
+     * A set of worlds with relevant permissions, i.e. when a player enters
+     * ModMode, their permissions from these worlds will be serialized and
+     * reapplied after they exit. Usually just "WORLD".
+     */
+    static HashSet<World> PERMISSION_WORLDS = new HashSet<>();
+
+    /**
+     * When a player enters ModMode, their current permission groups will be
+     * serialized into the mapping
+     *
+     *      Player -> {group_1, group_2, ..., group_n},
+     *
+     * of which all values (groups) will be re-applied after said player exits
+     * ModMode.
+     */
+    private static ConfigurationSection SERIALIZED_NODES;
 
     /**
      * Commands executed immediately before ModMode is activated.

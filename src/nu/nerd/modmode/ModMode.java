@@ -26,7 +26,6 @@ import java.io.File;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 // ------------------------------------------------------------------------
 /**
@@ -79,7 +78,7 @@ public class ModMode extends JavaPlugin {
 		PERMISSIONS = new Permissions();
 
 		// create global ModMode node
-		MOD_MODE_NODE = new Node(CONFIG.bPermsModModeGroup, null);
+		MOD_MODE_NODE = new Node(CONFIG.MODMODE_GROUP, null);
 
 		// find and load NerdBoard
 		NerdBoard nerdBoard = NerdBoardHook.getNerdBoard();
@@ -426,7 +425,7 @@ public class ModMode extends JavaPlugin {
 			MOD_MODE_NODE.remove(player);
 
 			// find the player's serialized nodes
-			List<String> loadedNodes = CONFIG.groupMap.getStringList(player.getUniqueId().toString());
+			List<String> loadedNodes = Configuration.getSerializedNodes(player);
 
 			// deserialize nodes and re-add
 			loadedNodes.stream()
@@ -451,21 +450,17 @@ public class ModMode extends JavaPlugin {
 			player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
 		} else {
 			// Clean up old mappings
-			CONFIG.groupMap.set(player.getUniqueId().toString(), null);
+			Configuration.sanitizeSerializedNodes(player);
 
 			// get player's current permission nodes
 			HashSet<Node> nodes = PERMISSIONS.getNodes(player, Configuration.PERMISSION_WORLDS);
 
 			// remove all nodes that are not configured to be persistent
 			nodes.stream()
-				 .filter(node -> !CONFIG.bPermsKeepGroups.contains(node.getName()))
+				 .filter(Configuration.IS_PERSISTENT_NODE)
 				 .forEach(node -> node.remove(player));
 
-			// serialize the player's nodes
-			List<String> serializedNodes = nodes.stream()
-												.map(Node::serialize)
-												.collect(Collectors.toList());
-			CONFIG.groupMap.set(player.getUniqueId().toString(), serializedNodes);
+			Configuration.serializeNodes(player, nodes);
 
 			// apply the ModMode node
 			MOD_MODE_NODE.apply(player);
