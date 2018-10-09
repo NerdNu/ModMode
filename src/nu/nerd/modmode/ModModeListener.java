@@ -80,7 +80,7 @@ public class ModModeListener implements Listener {
 
         CONFIG.joinedVanished.remove(player.getUniqueId().toString());
 
-        // Suppress quit messages when LOGGED_OUT_VANISHED.
+        // Suppress quit messages when vanished.
         if (ModMode.PLUGIN.isVanished(player)) {
             event.setQuitMessage(null);
         }
@@ -95,7 +95,7 @@ public class ModModeListener implements Listener {
 
     // ------------------------------------------------------------------------
     /**
-     * Disallows LOGGED_OUT_VANISHED players from picking up items.
+     * Disallows vanished players from picking up items.
      */
     @EventHandler(ignoreCancelled = true)
     public void onPlayerPickupItem(PlayerPickupItemEvent event) {
@@ -105,7 +105,7 @@ public class ModModeListener implements Listener {
 
     // ------------------------------------------------------------------------
     /**
-     * Disallows LOGGED_OUT_VANISHED players and players in ModMode from dropping items.
+     * Disallows vanished players and players in ModMode from dropping items.
      */
     @EventHandler
     public void onPlayerDropItem(PlayerDropItemEvent event) {
@@ -115,7 +115,7 @@ public class ModModeListener implements Listener {
 
     // ------------------------------------------------------------------------
     /**
-     * Disallows entities from targeting LOGGED_OUT_VANISHED players and players in
+     * Disallows entities from targeting vanished players and players in
      * ModMode, e.g. hostile mobs, parrots.
      */
     @EventHandler
@@ -130,7 +130,7 @@ public class ModModeListener implements Listener {
 
     // ------------------------------------------------------------------------
     /**
-     * Disallows LOGGED_OUT_VANISHED players and players in ModMode from damaging other
+     * Disallows vanished players and players in ModMode from damaging other
      * players.
      */
     @EventHandler

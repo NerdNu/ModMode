@@ -153,9 +153,9 @@ public class ModMode extends JavaPlugin {
 
     // ------------------------------------------------------------------------
     /**
-     * Return true if the player is currently LOGGED_OUT_VANISHED.
+     * Return true if the player is currently vanished.
      *
-     * @return true if the player is currently LOGGED_OUT_VANISHED.
+     * @return true if the player is currently vanished.
      */
     boolean isVanished(Player player) {
         return vanish.getManager().isVanished(player);
@@ -190,7 +190,7 @@ public class ModMode extends JavaPlugin {
      * Set the vanish state of the player.
      *
      * @param player the Player.
-     * @param vanished true if he should be LOGGED_OUT_VANISHED.
+     * @param vanished true if he should be vanished.
      */
     void setVanish(Player player, boolean vanished) {
         if (vanish.getManager().isVanished(player) != vanished) {
@@ -214,7 +214,7 @@ public class ModMode extends JavaPlugin {
 
     // ------------------------------------------------------------------------
     /**
-     * Sends a list of currently-LOGGED_OUT_VANISHED players to the given CommandSender.
+     * Sends a list of currently-vanished players to the given CommandSender.
      *
      * @param sender the CommandSender.
      */
@@ -548,10 +548,10 @@ public class ModMode extends JavaPlugin {
         Player player = (Player) sender;
         if (command.getName().equalsIgnoreCase("vanish")) {
             if (args.length > 0 && args[0].equalsIgnoreCase("check")) {
-                String vanishText = isVanished(player) ? "LOGGED_OUT_VANISHED." : "visible.";
+                String vanishText = isVanished(player) ? "vanished." : "visible.";
                 player.sendMessage(ChatColor.DARK_AQUA + "You are " + vanishText);
             } else if (isVanished(player)) {
-                player.sendMessage(ChatColor.DARK_AQUA + "You are already LOGGED_OUT_VANISHED.");
+                player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
             } else {
                 setVanish(player, true);
                 NerdBoardHook.reconcilePlayerWithVanishState(player);

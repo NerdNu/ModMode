@@ -37,7 +37,7 @@ final class NerdBoardHook {
 
     // ------------------------------------------------------------------------
     /**
-     * Sets whether or not default players can collide with LOGGED_OUT_VANISHED players.
+     * Sets whether or not default players can collide with vanished players.
      *
      * @param state true if the collisions should be allowed.
      */
@@ -48,10 +48,10 @@ final class NerdBoardHook {
 
     // ------------------------------------------------------------------------
     /**
-     * Returns true if collisions between default players and LOGGED_OUT_VANISHED players
+     * Returns true if collisions between default players and vanished players
      * are allowed.
      *
-     * @return true if collisions between default players and LOGGED_OUT_VANISHED players
+     * @return true if collisions between default players and vanished players
      *         are allowed.
      */
     static boolean allowsCollisions() {
@@ -158,7 +158,7 @@ final class NerdBoardHook {
     private static Team _vanishedTeam;
 
     /**
-     * Players who are not in ModMode or LOGGED_OUT_VANISHED are added to this team so that
+     * Players who are not in ModMode or vanished are added to this team so that
      * we can control their collidability. LivingEntity.setCollidable() is
      * broken: https://hub.spigotmc.org/jira/browse/SPIGOT-2069
      */
