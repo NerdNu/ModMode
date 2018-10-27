@@ -16,7 +16,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.kitteh.vanish.VanishPerms;
@@ -25,7 +24,6 @@ import org.kitteh.vanish.VanishPlugin;
 import java.io.File;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 
 // ------------------------------------------------------------------------
 /**
@@ -42,11 +40,6 @@ public class ModMode extends JavaPlugin {
      * The permissions handler.
      */
     private static Permissions PERMISSIONS;
-
-    /**
-     * The global ModMode node, built when configuration is loaded.
-     */
-    private static Node MOD_MODE_NODE;
 
     /**
      * A cache of players (UUIDs) currently in ModMode.
@@ -81,12 +74,6 @@ public class ModMode extends JavaPlugin {
             return;
         }
 
-        if (getServer().getPluginManager().isPluginEnabled("LogBlock")) {
-            new LogBlockListener();
-        } else {
-            log("LogBlock is not loaded. Integration disabled.");
-        }
-
         vanish = (VanishPlugin) getServer().getPluginManager().getPlugin("VanishNoPacket");
         if (vanish == null) {
             log("VanishNoPacket required. Download it here http://dev.bukkit.org/server-mods/vanish/");
@@ -103,15 +90,10 @@ public class ModMode extends JavaPlugin {
             vanishCommand.setPermission(Permissions.VANISH);
         }
 
-        Plugin logBlock = getServer().getPluginManager().getPlugin("LogBlock");
-        if (logBlock != null && !logBlock.isEnabled()) {
-            getPluginLoader().enablePlugin(logBlock);
-        }
-
         if (getServer().getPluginManager().isPluginEnabled("LogBlock")) {
             new LogBlockListener();
         } else {
-            log("LogBlock is not loaded. Integration disabled.");
+            log("LogBlock missing or unloaded. Integration disabled.");
         }
 
         CONFIG = new Configuration();
@@ -121,10 +103,6 @@ public class ModMode extends JavaPlugin {
 
         // instantiate permissions handler
         PERMISSIONS = new Permissions();
-
-        // create global ModMode node
-        MOD_MODE_NODE = new Node(CONFIG.MODMODE_GROUP, null);
-
     }
 
     // ------------------------------------------------------------------------
@@ -425,16 +403,11 @@ public class ModMode extends JavaPlugin {
 
         if (!enabled) {
             // remove ModMode node
-            MOD_MODE_NODE.remove(player);
+            PERMISSIONS.removeGroup(player, CONFIG.MODMODE_GROUP);
 
-            // find the player's serialized nodes
-            List<String> loadedNodes = Configuration.getSerializedNodes(player);
-
-            // deserialize nodes and re-add
-            loadedNodes.stream()
-                       .map(Node::deserialize)
-                       .filter(Objects::nonNull)
-                       .forEach(node -> node.apply(player));
+            // re-add the player's serialized groups
+            List<String> serializedGroups = Configuration.getSerializedGroups(player);
+            serializedGroups.forEach(group -> PERMISSIONS.addGroup(player, group));
 
             // When leaving ModMode, Admins return to their persistent vanish
             // state; Moderators become visible
@@ -452,21 +425,20 @@ public class ModMode extends JavaPlugin {
 
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
         } else {
-            // Clean up old mappings
-            Configuration.sanitizeSerializedNodes(player);
+            // clean up old mappings
+            Configuration.sanitizeSerializedGroups(player);
 
-            // get player's current permission nodes
-            HashSet<Node> nodes = PERMISSIONS.getNodes(player, Configuration.PERMISSION_WORLDS);
+            // get & serialize player's current groups
+            HashSet<String> nodes = PERMISSIONS.getGroups(player);
+            Configuration.serializeGroups(player, nodes);
 
-            // remove all nodes that are not configured to be persistent
+            // remove all groups that are not configured to be persistent
             nodes.stream()
-                 .filter(Configuration.IS_PERSISTENT_NODE)
-                 .forEach(node -> node.remove(player));
-
-            Configuration.serializeNodes(player, nodes);
+                 .filter(group -> !Configuration.isPersistentGroup(group))
+                 .forEach(group -> PERMISSIONS.removeGroup(player, group));
 
             // apply the ModMode node
-            MOD_MODE_NODE.apply(player);
+            PERMISSIONS.addGroup(player, CONFIG.MODMODE_GROUP);
 
             // add to ModMode cache
             MODMODE_CACHE.add(player);
@@ -654,6 +626,6 @@ public class ModMode extends JavaPlugin {
     /**
      * This plugin's prefix as a string; for logging.
      */
-    private static final String PREFIX = ChatColor.WHITE + "[" + ChatColor.GREEN + "ModMode" + ChatColor.WHITE + "] ";
+    private static final String PREFIX = ChatColor.DARK_GRAY + "[" + ChatColor.GREEN + "ModMode" + ChatColor.DARK_GRAY + "] ";
 
 } // ModMode

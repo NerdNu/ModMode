@@ -3,8 +3,10 @@ package nu.nerd.modmode;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 // ------------------------------------------------------------------------
 /**
@@ -70,7 +72,7 @@ class AbstractPlayerCache {
      * @param config the configuration.
      */
     synchronized void save(FileConfiguration config) {
-        config.set(_configKey, CACHE.toArray());
+        config.set(_configKey, new ArrayList<>(CACHE.stream().map(UUID::toString).collect(Collectors.toSet())));
     }
 
     // ------------------------------------------------------------------------

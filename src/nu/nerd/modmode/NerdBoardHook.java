@@ -72,7 +72,7 @@ final class NerdBoardHook {
     private static Team configureTeam(String name, ChatColor color, boolean collisions) {
         Team team = getOrCreateTeam(name);
         if (color != null) {
-            team.setPrefix(color + "");
+            team.setColor(color);
         }
         team.setOption(Team.Option.COLLISION_RULE, boolToStatus(collisions));
         return team;

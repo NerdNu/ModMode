@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 // ------------------------------------------------------------------------
@@ -28,17 +27,6 @@ class Configuration {
      */
     private FileConfiguration _config;
 
-    /**
-     * A predicate which tests if a given node is configured to be persistent
-     * across ModMode toggles.
-     */
-    public static final Predicate<Node> IS_PERSISTENT_NODE = new Predicate<Node>() {
-        @Override
-        public boolean test(Node node) {
-            return PERSISTENT_NODES.contains(node);
-        }
-    };
-
     // ------------------------------------------------------------------------
     /**
      * Constructor.
@@ -49,29 +37,37 @@ class Configuration {
 
     // ------------------------------------------------------------------------
     /**
-     * Returns the given player's serialized nodes. If none exist, an empty
-     * List will be returned.
+     * Returns true if the given groups is configured to be persistent.
      *
-     * @param player the player.
-     * @return the player's serialized nodes; if none, an empty list.
+     * @param group the group.
+     * @return true if the given groups is configured to be persistent.
      */
-    static List<String> getSerializedNodes(Player player) {
-        String playerUuid = player.getUniqueId().toString();
-        return new ArrayList<>(SERIALIZED_NODES.getStringList(playerUuid));
+    static boolean isPersistentGroup(String group) {
+        return PERSISTENT_GROUPS.contains(group);
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Serializes the given nodes for the given player.
+     * Returns the given player's serialized groups. If none exist, an empty
+     * List will be returned.
      *
      * @param player the player.
-     * @param nodes the nodes to serialize.
+     * @return the player's serialized groups; if none, an empty list.
      */
-    static void serializeNodes(Player player, Collection<Node> nodes) {
-        List<String> serializedNodes = nodes.stream()
-                                            .map(Node::serialize)
-                                            .collect(Collectors.toList());
-        SERIALIZED_NODES.set(player.getUniqueId().toString(), serializedNodes);
+    static List<String> getSerializedGroups(Player player) {
+        String playerUuid = player.getUniqueId().toString();
+        return new ArrayList<>(SERIALIZED_GROUPS.getStringList(playerUuid));
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Serializes the given groups for the given player.
+     *
+     * @param player the player.
+     * @param groups the groups to serialize.
+     */
+    static void serializeGroups(Player player, Collection<String> groups) {
+        SERIALIZED_GROUPS.set(player.getUniqueId().toString(), new ArrayList<>(groups));
     }
 
     // ------------------------------------------------------------------------
@@ -81,8 +77,8 @@ class Configuration {
      *
      * @param player the player.
      */
-    static void sanitizeSerializedNodes(Player player) {
-        SERIALIZED_NODES.set(player.getUniqueId().toString(), null);
+    static void sanitizeSerializedGroups(Player player) {
+        SERIALIZED_GROUPS.set(player.getUniqueId().toString(), null);
     }
 
     // ------------------------------------------------------------------------
@@ -135,11 +131,8 @@ class Configuration {
         // update collisions for players in ModMode
         NerdBoardHook.setAllowCollisions(_config.getBoolean("allow.collisions", true));
 
-        // load persistent nodes
-        List<String> persistentNodes = _config.getStringList("permissions.persistent-nodes");
-        PERSISTENT_NODES = persistentNodes.stream()
-                                           .map(Node::deserialize)
-                                           .collect(Collectors.toSet());
+        // load persistent groups
+        PERSISTENT_GROUPS = new HashSet<>(_config.getStringList("permissions.persistent-groups"));
 
         // load permission worlds
         PERMISSION_WORLDS = _config.getStringList("permissions.worlds")
@@ -147,10 +140,10 @@ class Configuration {
                                    .map(Bukkit::getWorld)
                                    .collect(Collectors.toCollection(HashSet::new));
 
-        // store reference to the serialized nodes configuration section
-        SERIALIZED_NODES = _config.getConfigurationSection("serialized-nodes");
-        if (SERIALIZED_NODES == null) {
-            SERIALIZED_NODES = _config.createSection("serialized-nodes");
+        // store reference to the serialized groups configuration section
+        SERIALIZED_GROUPS = _config.getConfigurationSection("serialized-groups");
+        if (SERIALIZED_GROUPS == null) {
+            SERIALIZED_GROUPS = _config.createSection("serialized-groups");
         }
 
         MODERATOR_GROUP = _config.getString("permissions.moderator-group", "moderators");
@@ -173,9 +166,7 @@ class Configuration {
         ModMode.getModModeCache().save(_config);
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
-        _config.set("permissions.persistent-nodes", PERSISTENT_NODES.stream()
-                                                                    .map(Node::serialize)
-                                                                    .collect(Collectors.toList()));
+        _config.set("permissions.persistent-groups", new ArrayList<>(PERSISTENT_GROUPS));
         _config.set("permissions.worlds", PERMISSION_WORLDS.stream()
                                                            .map(World::getName)
                                                            .collect(Collectors.toList()));
@@ -223,9 +214,9 @@ class Configuration {
     String MODMODE_GROUP;
 
     /**
-     * A set of nodes which should be retained when entering ModMode.
+     * A set of groups which should be retained when entering ModMode.
      */
-    private static Set<Node> PERSISTENT_NODES = new HashSet<>();
+    private static HashSet<String> PERSISTENT_GROUPS = new HashSet<>();
 
     /**
      * A set of worlds with relevant permissions, i.e. when a player enters
@@ -243,7 +234,7 @@ class Configuration {
      * of which all values (groups) will be re-applied after said player exits
      * ModMode.
      */
-    private static ConfigurationSection SERIALIZED_NODES;
+    private static ConfigurationSection SERIALIZED_GROUPS;
 
     /**
      * Commands executed immediately before ModMode is activated.
