@@ -1,7 +1,5 @@
 package nu.nerd.modmode;
 
-import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -14,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 // ------------------------------------------------------------------------
 /**
@@ -134,12 +131,6 @@ class Configuration {
         // load persistent groups
         PERSISTENT_GROUPS = new HashSet<>(_config.getStringList("permissions.persistent-groups"));
 
-        // load permission worlds
-        PERMISSION_WORLDS = _config.getStringList("permissions.worlds")
-                                   .stream()
-                                   .map(Bukkit::getWorld)
-                                   .collect(Collectors.toCollection(HashSet::new));
-
         // store reference to the serialized groups configuration section
         SERIALIZED_GROUPS = _config.getConfigurationSection("serialized-groups");
         if (SERIALIZED_GROUPS == null) {
@@ -167,9 +158,6 @@ class Configuration {
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
         _config.set("permissions.persistent-groups", new ArrayList<>(PERSISTENT_GROUPS));
-        _config.set("permissions.worlds", PERMISSION_WORLDS.stream()
-                                                           .map(World::getName)
-                                                           .collect(Collectors.toList()));
         _config.set("permissions.modmode-group", MODMODE_GROUP);
         _config.set("permissions.moderator-group", MODERATOR_GROUP);
         ModMode.PLUGIN.saveConfig();
@@ -217,13 +205,6 @@ class Configuration {
      * A set of groups which should be retained when entering ModMode.
      */
     private static HashSet<String> PERSISTENT_GROUPS = new HashSet<>();
-
-    /**
-     * A set of worlds with relevant permissions, i.e. when a player enters
-     * ModMode, their permissions from these worlds will be serialized and
-     * reapplied after they exit. Usually just "WORLD".
-     */
-    static HashSet<World> PERMISSION_WORLDS = new HashSet<>();
 
     /**
      * When a player enters ModMode, their current permission groups will be
