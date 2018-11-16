@@ -1,5 +1,6 @@
 package nu.nerd.modmode;
 
+import me.lucko.luckperms.api.Contexts;
 import me.lucko.luckperms.api.LuckPermsApi;
 import me.lucko.luckperms.api.Node;
 import me.lucko.luckperms.api.User;
@@ -57,6 +58,7 @@ public class Permissions {
         } else {
             Node node = API.getNodeFactory()
                            .makeGroupNode(group)
+                           .setExtraContext(Contexts.global().getContexts())
                            .build();
             _nodeCache.put(group, node);
             return node;
@@ -85,9 +87,7 @@ public class Permissions {
      * @param group the group to add.
      */
     void addGroup(Player player, String group) {
-        User user = getUser(player);
-        Node node = getGroupNode(group);
-        user.setPermission(node);
+        changeGroup(player, group, true);
     }
 
     // ------------------------------------------------------------------------
@@ -98,9 +98,23 @@ public class Permissions {
      * @param group the group to remove.
      */
     void removeGroup(Player player, String group) {
+        changeGroup(player, group, false);
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * If add is true, the group will be added to the user; likewise removed
+     * if false.
+     *
+     * @param player the player.
+     * @param group the group.
+     * @param add true to add, false to remove.
+     */
+    private void changeGroup(Player player, String group, boolean add) {
         User user = getUser(player);
         Node node = getGroupNode(group);
-        user.unsetPermission(node);
+        if (add) user.setPermission(node); else user.unsetPermission(node);
+        API.getUserManager().saveUser(user);
     }
 
     // ------------------------------------------------------------------------
