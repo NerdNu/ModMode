@@ -6,12 +6,8 @@ import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 
 // ------------------------------------------------------------------------
 /**
@@ -22,15 +18,9 @@ class Configuration {
     /**
      * The configuration.
      */
-    private FileConfiguration _config;
+    private static FileConfiguration _config;
 
-    // ------------------------------------------------------------------------
-    /**
-     * Constructor.
-     */
-    Configuration() {
-        reload();
-    }
+    private Configuration() { }
 
     // ------------------------------------------------------------------------
     /**
@@ -80,53 +70,15 @@ class Configuration {
 
     // ------------------------------------------------------------------------
     /**
-     * Returns true if the given player logged out while vanished.
-     *
-     * @param player the player.
-     * @return true if the given player logged out while vanished.
-     */
-    static synchronized boolean loggedOutVanished(Player player) {
-        return LOGGED_OUT_VANISHED.contains(player.getUniqueId());
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Sets the player's logged-out-vanished state to the given state.
-     *
-     * @param player the player.
-     * @param state the new state.
-     */
-    static synchronized void setLoggedOutVanished(Player player, boolean state) {
-        if (state) {
-            LOGGED_OUT_VANISHED.add(player.getUniqueId());
-        } else {
-            LOGGED_OUT_VANISHED.remove(player.getUniqueId());
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
      * Load the configuration.
      */
-    synchronized void reload() {
+    synchronized static void reload() {
         ModMode.PLUGIN.saveDefaultConfig();
         ModMode.PLUGIN.reloadConfig();
         _config = ModMode.PLUGIN.getConfig();
 
-        // clear logged-out-vanished list and repopulate from config
-        LOGGED_OUT_VANISHED.clear();
-        _config.getStringList("logged-out-vanished").stream()
-                                                    .map(UUID::fromString)
-                                                    .forEach(LOGGED_OUT_VANISHED::add);
-
         // reload modmode cache
         ModMode.getModModeCache().load(_config);
-
-        joinedVanished = new HashMap<>();
-        allowFlight = _config.getBoolean("allow.flight", true);
-
-        // update collisions for players in ModMode
-        NerdBoardHook.setAllowCollisions(_config.getBoolean("allow.collisions", true));
 
         // load persistent groups
         PERSISTENT_GROUPS = new HashSet<>(_config.getStringList("permissions.persistent-groups"));
@@ -140,23 +92,27 @@ class Configuration {
         MODERATOR_GROUP = _config.getString("permissions.moderator-group", "moderators");
         MODMODE_GROUP = _config.getString("permissions.modmode-group", "ModMode");
 
-        debugPlayerData = _config.getBoolean("debug.playerdata");
+        DEBUG_PLAYER_DATA = _config.getBoolean("debug.playerdata");
 
-        beforeActivationCommands = _config.getStringList("commands.activate.before");
-        afterActivationCommands = _config.getStringList("commands.activate.after");
-        beforeDeactivationCommands = _config.getStringList("commands.deactivate.before");
-        afterDeactivationCommands = _config.getStringList("commands.deactivate.after");
+        BEFORE_ACTIVATION_COMMANDS.clear();
+        BEFORE_ACTIVATION_COMMANDS.addAll(_config.getStringList("commands.activate.before"));
+
+        AFTER_ACTIVATION_COMMANDS.clear();
+        AFTER_ACTIVATION_COMMANDS.addAll(_config.getStringList("commands.activate.after"));
+
+        BEFORE_DEACTIVATION_COMMANDS.clear();
+        BEFORE_DEACTIVATION_COMMANDS.addAll(_config.getStringList("commands.deactivate.before"));
+
+        AFTER_DEACTIVATION_COMMANDS.clear();
+        AFTER_DEACTIVATION_COMMANDS.addAll(_config.getStringList("commands.deactivate.after"));
     }
 
     // ------------------------------------------------------------------------
     /**
      * Save the configuration.
      */
-    synchronized void save() {
-        _config.set("logged-out-vanished", new ArrayList<>(LOGGED_OUT_VANISHED));
+    synchronized static void save() {
         ModMode.getModModeCache().save(_config);
-        _config.set("allow.flight", allowFlight);
-        _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
         _config.set("permissions.persistent-groups", new ArrayList<>(PERSISTENT_GROUPS));
         _config.set("permissions.modmode-group", MODMODE_GROUP);
         _config.set("permissions.moderator-group", MODERATOR_GROUP);
@@ -164,42 +120,19 @@ class Configuration {
     }
 
     /**
-     * For Moderators in ModMode, this is persistent storage for their vanish
-     * state when they log out. Moderators out of ModMode are assumed to always
-     * be visible.
-     *
-     * For Admins who can vanish without transitioning into ModMode, this
-     * variable stores their vanish state between logins only when not in
-     * ModMode. If they log out in ModMode, they are re-vanished automatically
-     * when they log in. When they leave ModMode, their vanish state is set
-     * according to membership in this set.
-     *
-     * This is NOT the set of currently vanished players, which is instead
-     * maintained by the VanishNoPacket plugin.
-     */
-    private static Set<UUID> LOGGED_OUT_VANISHED = new HashSet<>();
-
-    Map<String, String> joinedVanished;
-
-    /**
-     * If true, players in ModMode will be able to fly.
-     */
-    boolean allowFlight;
-
-    /**
      * If true, player data loads and saves are logged to the console.
      */
-    boolean debugPlayerData;
+    static boolean DEBUG_PLAYER_DATA;
 
     /**
      * The name of the moderator permission group.
      */
-    String MODERATOR_GROUP;
+    static String MODERATOR_GROUP;
 
     /**
      * The name of the ModMode permission group.
      */
-    String MODMODE_GROUP;
+    static String MODMODE_GROUP;
 
     /**
      * A set of groups which should be retained when entering ModMode.
@@ -220,21 +153,21 @@ class Configuration {
     /**
      * Commands executed immediately before ModMode is activated.
      */
-    List<String> beforeActivationCommands;
+    static final HashSet<String> BEFORE_ACTIVATION_COMMANDS = new HashSet<>();
 
     /**
      * Commands executed immediately after ModMode is activated.
      */
-    List<String> afterActivationCommands;
+    static final HashSet<String> AFTER_ACTIVATION_COMMANDS = new HashSet<>();
 
     /**
      * Commands executed immediately before ModMode is deactivated.
      */
-    List<String> beforeDeactivationCommands;
+    static final HashSet<String> BEFORE_DEACTIVATION_COMMANDS = new HashSet<>();
 
     /**
      * Commands executed immediately after ModMode is deactivated.
      */
-    List<String> afterDeactivationCommands;
+    static final HashSet<String> AFTER_DEACTIVATION_COMMANDS = new HashSet<>();
 
 }

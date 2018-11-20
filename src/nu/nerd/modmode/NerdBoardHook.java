@@ -30,32 +30,9 @@ final class NerdBoardHook {
         _nerdBoard = nerdBoard;
         _scoreboard = nerdBoard.getScoreboard();
 
-        _modModeTeam = configureTeam("Mod Mode", ChatColor.GREEN, true);
-        _vanishedTeam = configureTeam("Vanished", ChatColor.BLUE, true);
-        _defaultTeam = configureTeam("Default", null, false);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Sets whether or not default players can collide with vanished players.
-     *
-     * @param state true if the collisions should be allowed.
-     */
-    static void setAllowCollisions(boolean state) {
-        _allowCollisions = state;
-        _defaultTeam.setOption(Team.Option.COLLISION_RULE, boolToStatus(state));
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Returns true if collisions between default players and vanished players
-     * are allowed.
-     *
-     * @return true if collisions between default players and vanished players
-     *         are allowed.
-     */
-    static boolean allowsCollisions() {
-        return _allowCollisions;
+        _modModeTeam = configureTeam("Mod Mode", ChatColor.GREEN);
+        _vanishedTeam = configureTeam("Vanished", ChatColor.BLUE);
+        _defaultTeam = configureTeam("Default", null);
     }
 
     // ------------------------------------------------------------------------
@@ -65,16 +42,13 @@ final class NerdBoardHook {
      *
      * @param name the name of the team.
      * @param color (nullable) the team's color (i.e. player name color).
-     * @param collisions if entity collisions should be enabled for
-     *                        players on this team.
      * @return a {@link Team} with the given properties.
      */
-    private static Team configureTeam(String name, ChatColor color, boolean collisions) {
+    private static Team configureTeam(String name, ChatColor color) {
         Team team = getOrCreateTeam(name);
         if (color != null) {
             team.setColor(color);
         }
-        team.setOption(Team.Option.COLLISION_RULE, boolToStatus(collisions));
         return team;
     }
 
@@ -128,25 +102,6 @@ final class NerdBoardHook {
             player.setScoreboard(_scoreboard);
         }
     }
-
-    /**
-     * Translates a boolean to an {@link org.bukkit.scoreboard.Team.OptionStatus}
-     * with the mapping:
-     *      true -> OptionStatus.ALWAYS
-     *      false -> OptionStatus.NEVER
-     *
-     * @param bool the boolean.
-     * @return the translated OptionStatus.
-     */
-    private static Team.OptionStatus boolToStatus(boolean bool) {
-        return bool ? Team.OptionStatus.ALWAYS : Team.OptionStatus.NEVER;
-    }
-
-    /**
-     * Allow collisions between unvanished players. Vanished staff are never
-     * collidable.
-     */
-    private static boolean _allowCollisions;
 
     /**
      * Scoreboard API stuff for colored name tags

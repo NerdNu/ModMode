@@ -2,9 +2,12 @@ package nu.nerd.modmode;
 
 import de.diddiz.LogBlock.Actor;
 import de.diddiz.LogBlock.events.BlockChangePreLogEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+
+import java.util.UUID;
 
 // ------------------------------------------------------------------------
 /**
@@ -25,7 +28,8 @@ public class LogBlockListener implements Listener {
      */
     @EventHandler
     public void onLogBlockPreLogEvent(BlockChangePreLogEvent event) {
-        Player player = ModMode.PLUGIN.getServer().getPlayerExact(event.getOwner());
+        UUID uuid = UUID.fromString(event.getOwnerActor().getUUID());
+        Player player = Bukkit.getPlayer(uuid);
         if (player != null && ModMode.PLUGIN.isModMode(player)) {
             Actor actor = new Actor(ModMode.PLUGIN.getCleanModModeName(player));
             event.setOwner(actor);

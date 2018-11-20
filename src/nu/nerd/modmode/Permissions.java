@@ -1,5 +1,6 @@
 package nu.nerd.modmode;
 
+import me.lucko.luckperms.api.Contexts;
 import me.lucko.luckperms.api.LuckPermsApi;
 import me.lucko.luckperms.api.Node;
 import me.lucko.luckperms.api.User;
@@ -57,24 +58,11 @@ public class Permissions {
         } else {
             Node node = API.getNodeFactory()
                            .makeGroupNode(group)
+                           .setExtraContext(Contexts.global().getContexts()) //TODO
                            .build();
             _nodeCache.put(group, node);
             return node;
         }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Return true if the player has Admin permissions.
-     *
-     * That is, the player has permissions in excess of those of the ModMode
-     * permission group. This is a different concept from Permissions.OP,
-     * which merely signifies that the player can administer this plugin.
-     *
-     * @return true for Admins, false for Moderators and default players.
-     */
-    boolean isAdmin(Player player) {
-        return player.hasPermission(ADMIN);
     }
 
     // ------------------------------------------------------------------------
@@ -126,9 +114,6 @@ public class Permissions {
     private final HashMap<String, Node> _nodeCache = new HashMap<>();
 
     private static final String MODMODE = "modmode.";
-    public static final String VANISH = MODMODE + "vanish";
-    public static final String TOGGLE = MODMODE + "toggle";
-    public static final String ADMIN = MODMODE + "admin";
     public static final String OP = MODMODE + "op";
 
 }

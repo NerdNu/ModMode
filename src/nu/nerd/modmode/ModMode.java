@@ -1,16 +1,13 @@
 package nu.nerd.modmode;
 
+import de.myzelyam.api.vanish.VanishAPI;
 import nu.nerd.nerdboard.NerdBoard;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Chunk;
-import org.bukkit.GameMode;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -18,10 +15,9 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
-import org.kitteh.vanish.VanishPerms;
-import org.kitteh.vanish.VanishPlugin;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 
@@ -46,16 +42,6 @@ public class ModMode extends JavaPlugin {
      */
     static final AbstractPlayerCache MODMODE_CACHE = new AbstractPlayerCache("modmode");
 
-    /**
-     * The vanish plugin.
-     */
-    private VanishPlugin vanish;
-
-    /**
-     * This plugin's configuration.
-     */
-    static Configuration CONFIG;
-
     // ------------------------------------------------------------------------
     /**
      * @see JavaPlugin#onEnable().
@@ -63,8 +49,21 @@ public class ModMode extends JavaPlugin {
     @Override
     public void onEnable() {
         PLUGIN = this;
+        Configuration.reload();
+        findDependencies();
+        new ModModeListener();
+        PERMISSIONS = new Permissions();
+    }
 
-        // find and load NerdBoard
+    private void findDependencies() {
+        try {
+            VanishAPI.getPlugin();
+        } catch (Exception e) {
+            log("SuperVanish is required. https://github.com/MyzelYam/SuperVanish");
+            getPluginLoader().disablePlugin(this);
+            return;
+        }
+
         NerdBoard nerdBoard = NerdBoardHook.getNerdBoard();
         if (nerdBoard != null) {
             new NerdBoardHook(nerdBoard);
@@ -74,35 +73,11 @@ public class ModMode extends JavaPlugin {
             return;
         }
 
-        vanish = (VanishPlugin) getServer().getPluginManager().getPlugin("VanishNoPacket");
-        if (vanish == null) {
-            log("VanishNoPacket required. Download it here http://dev.bukkit.org/server-mods/vanish/");
-            getPluginLoader().disablePlugin(this);
-            return;
-        } else {
-            // Make sure that VanishNoPacket is enabled.
-            getPluginLoader().enablePlugin(vanish);
-
-            // Intercept the /vanish command and handle it here.
-            CommandExecutor ownExecutor = getCommand("modmode").getExecutor();
-            PluginCommand vanishCommand = vanish.getCommand("vanish");
-            vanishCommand.setExecutor(ownExecutor);
-            vanishCommand.setPermission(Permissions.VANISH);
-        }
-
         if (getServer().getPluginManager().isPluginEnabled("LogBlock")) {
             new LogBlockListener();
         } else {
             log("LogBlock missing or unloaded. Integration disabled.");
         }
-
-        CONFIG = new Configuration();
-
-        // instantiate the self-registering ModMode listener
-        new ModModeListener();
-
-        // instantiate permissions handler
-        PERMISSIONS = new Permissions();
     }
 
     // ------------------------------------------------------------------------
@@ -112,19 +87,15 @@ public class ModMode extends JavaPlugin {
     @Override
     public void onDisable() {
         HandlerList.unregisterAll(this);
-        CONFIG.save();
+        Configuration.save();
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Returns the permissions handler.
+     * Returns a reference to the ModMode player cache.
      *
-     * @return the permissions handler.
+     * @return a reference to the ModMode player cache.
      */
-    static Permissions getPermissions() {
-        return PERMISSIONS;
-    }
-
     static AbstractPlayerCache getModModeCache() {
         return MODMODE_CACHE;
     }
@@ -136,20 +107,7 @@ public class ModMode extends JavaPlugin {
      * @return true if the player is currently vanished.
      */
     boolean isVanished(Player player) {
-        return vanish.getManager().isVanished(player);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Save the current vanish state of the player as their persistent vanish
-     * state.
-     *
-     * This means different things depending on whether the player could
-     * normally vanish without being in ModMode. See the doc comment for
-     * {@link Configuration#LOGGED_OUT_VANISHED}.
-     */
-    void setPersistentVanishState(Player player) {
-        Configuration.setLoggedOutVanished(player, vanish.getManager().isVanished(player));
+        return VanishAPI.isInvisible(player);
     }
 
     // ------------------------------------------------------------------------
@@ -161,60 +119,6 @@ public class ModMode extends JavaPlugin {
      */
     synchronized boolean isModMode(Player player) {
         return MODMODE_CACHE.contains(player);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Set the vanish state of the player.
-     *
-     * @param player the Player.
-     * @param vanished true if he should be vanished.
-     */
-    void setVanish(Player player, boolean vanished) {
-        if (vanish.getManager().isVanished(player) != vanished) {
-            vanish.getManager().toggleVanish(player);
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Try to coerce VanishNoPacket into showing or hiding players to each other
-     * based on their current vanish state and permissions.
-     *
-     * Just calling resetSeeing() when a moderator toggles ModMode (and hence
-     * permissions and vanish state) is apparently insufficient.
-     */
-    void updateAllPlayersSeeing() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            vanish.getManager().playerRefresh(player);
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Sends a list of currently-vanished players to the given CommandSender.
-     *
-     * @param sender the CommandSender.
-     */
-    private void showVanishList(CommandSender sender) {
-        StringBuilder result = new StringBuilder();
-        boolean first = true;
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-            if (vanish.getManager().isVanished(player)) {
-                if (first) {
-                    first = false;
-                } else {
-                    result.append(", ");
-                }
-                result.append(player.getName());
-            }
-        }
-
-        if (result.length() == 0) {
-            sender.sendMessage(ChatColor.RED + "All players are visible!");
-        } else {
-            sender.sendMessage(ChatColor.RED + "Vanished players: " + result);
-        }
     }
 
     // ------------------------------------------------------------------------
@@ -254,7 +158,7 @@ public class ModMode extends JavaPlugin {
      */
     private void savePlayerData(Player player, boolean isModMode) {
         File stateFile = getStateFile(player, isModMode);
-        if (CONFIG.debugPlayerData) {
+        if (Configuration.DEBUG_PLAYER_DATA) {
             log("savePlayerData(): " + stateFile);
         }
 
@@ -314,7 +218,7 @@ public class ModMode extends JavaPlugin {
      */
     private void loadPlayerData(Player player, boolean isModMode) {
         File stateFile = getStateFile(player, isModMode);
-        if (CONFIG.debugPlayerData) {
+        if (Configuration.DEBUG_PLAYER_DATA) {
             log("loadPlayerData(): " + stateFile);
         }
 
@@ -396,31 +300,18 @@ public class ModMode extends JavaPlugin {
      */
     private void toggleModMode(final Player player, boolean enabled) {
         if (enabled) {
-            runCommands(player, CONFIG.beforeActivationCommands);
+            runCommands(player, Configuration.BEFORE_ACTIVATION_COMMANDS);
         } else {
-            runCommands(player, CONFIG.beforeDeactivationCommands);
+            runCommands(player, Configuration.BEFORE_DEACTIVATION_COMMANDS);
         }
 
         if (!enabled) {
-            // remove ModMode node
-            PERMISSIONS.removeGroup(player, CONFIG.MODMODE_GROUP);
+            PERMISSIONS.removeGroup(player, Configuration.MODMODE_GROUP);
 
             // re-add the player's serialized groups
             List<String> serializedGroups = Configuration.getSerializedGroups(player);
             serializedGroups.forEach(group -> PERMISSIONS.addGroup(player, group));
 
-            // When leaving ModMode, Admins return to their persistent vanish
-            // state; Moderators become visible
-            if (PERMISSIONS.isAdmin(player)) {
-                setVanish(player, Configuration.loggedOutVanished(player));
-            } else {
-                setVanish(player, false);
-                if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
-                    getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
-                }
-            }
-
-            // remove from ModMode cache
             MODMODE_CACHE.remove(player);
 
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
@@ -429,40 +320,23 @@ public class ModMode extends JavaPlugin {
             Configuration.sanitizeSerializedGroups(player);
 
             // get & serialize player's current groups
-            HashSet<String> nodes = PERMISSIONS.getGroups(player);
-            Configuration.serializeGroups(player, nodes);
+            HashSet<String> groups = PERMISSIONS.getGroups(player);
+            Configuration.serializeGroups(player, groups);
 
             // remove all groups that are not configured to be persistent
-            nodes.stream()
-                 .filter(group -> !Configuration.isPersistentGroup(group))
-                 .forEach(group -> PERMISSIONS.removeGroup(player, group));
+            groups.stream()
+                  .filter(group -> !Configuration.isPersistentGroup(group))
+                  .forEach(group -> PERMISSIONS.removeGroup(player, group));
 
-            // apply the ModMode node
-            PERMISSIONS.addGroup(player, CONFIG.MODMODE_GROUP);
+            PERMISSIONS.addGroup(player, Configuration.MODMODE_GROUP);
 
-            // add to ModMode cache
             MODMODE_CACHE.add(player);
 
-            // Always vanish when entering ModMode. Record the old vanish state for admins only.
-            if (PERMISSIONS.isAdmin(player)) {
-                setPersistentVanishState(player);
-            }
-
-            setVanish(player, true);
             player.sendMessage(ChatColor.RED + "You are now in ModMode!");
         }
 
-        // Update the permissions that VanishNoPacket caches to match the new
-        // permissions of the player. This is highly dependent on this API
-        // method not doing anything more than what it currently does:
-        // to simply remove the cached VanishUser (permissions) object.
-        VanishPerms.userQuit(player);
-
-        // Update the nametage for the player
+        // update the nametag for the player
         NerdBoardHook.reconcilePlayerWithVanishState(player);
-
-        // Update who sees whom AFTER permissions and vanish state changes.
-        updateAllPlayersSeeing();
 
         // Save player data for the old ModMode state and load for the new.
         savePlayerData(player, !enabled);
@@ -471,30 +345,13 @@ public class ModMode extends JavaPlugin {
         // Hopefully stop some minor falls
         player.setFallDistance(0F);
 
-        // Chunk error (resend to all clients).
-        World w = player.getWorld();
-        Chunk c = w.getChunkAt(player.getLocation());
-        w.refreshChunk(c.getX(), c.getZ());
-
-        restoreFlight(player, enabled);
-        CONFIG.save();
+        Configuration.save();
 
         if (enabled) {
-            runCommands(player, CONFIG.afterActivationCommands);
+            runCommands(player, Configuration.AFTER_ACTIVATION_COMMANDS);
         } else {
-            runCommands(player, CONFIG.afterDeactivationCommands);
+            runCommands(player, Configuration.AFTER_DEACTIVATION_COMMANDS);
         }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Restore flight ability if in ModMode or creative game mode.
-     *
-     * @param player the player.
-     * @param isInModMode true if the player is in ModMode.
-     */
-    void restoreFlight(Player player, boolean isInModMode) {
-        player.setAllowFlight((isInModMode && CONFIG.allowFlight) || player.getGameMode() == GameMode.CREATIVE);
     }
 
     // ------------------------------------------------------------------------
@@ -503,41 +360,11 @@ public class ModMode extends JavaPlugin {
      */
     @Override
     public boolean onCommand(CommandSender sender, Command command, String name, String[] args) {
-        if (command.getName().equalsIgnoreCase("vanishlist")) {
-            showVanishList(sender);
-            return true;
-        }
-
         if (command.getName().equalsIgnoreCase("modmode")) {
             cmdModMode(sender, args);
-            return true;
-        }
-
-        if (!isInGame(sender)) {
-            return true;
-        }
-
-        Player player = (Player) sender;
-        if (command.getName().equalsIgnoreCase("vanish")) {
-            if (args.length > 0 && args[0].equalsIgnoreCase("check")) {
-                String vanishText = isVanished(player) ? "vanished." : "visible.";
-                player.sendMessage(ChatColor.DARK_AQUA + "You are " + vanishText);
-            } else if (isVanished(player)) {
-                player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
-            } else {
-                setVanish(player, true);
-                NerdBoardHook.reconcilePlayerWithVanishState(player);
-            }
-        } else if (command.getName().equalsIgnoreCase("unvanish")) {
-            if (isVanished(player)) {
-                setVanish(player, false);
-                NerdBoardHook.reconcilePlayerWithVanishState(player);
-            } else {
-                player.sendMessage(ChatColor.DARK_AQUA + "You are already visible.");
-            }
         }
         return true;
-    } // onCommand
+    }
 
     // ------------------------------------------------------------------------
     /**
@@ -559,10 +386,10 @@ public class ModMode extends JavaPlugin {
             }
 
             if (args[0].equalsIgnoreCase("save")) {
-                CONFIG.save();
+                Configuration.save();
                 sender.sendMessage(ChatColor.GOLD + "ModMode configuration saved.");
             } else if (args[0].equalsIgnoreCase("reload")) {
-                CONFIG.reload();
+                Configuration.reload();
                 sender.sendMessage(ChatColor.GOLD + "ModMode configuration reloaded.");
             }
         } else {
@@ -590,12 +417,12 @@ public class ModMode extends JavaPlugin {
 
     // ------------------------------------------------------------------------
     /**
-     * Run all of the commands in the List of Strings.
+     * Runs all of the given commands as the given player.
      *
      * @param player the moderator causing the commands to run.
      * @param commands the commands to run.
      */
-    private void runCommands(Player player, List<String> commands) {
+    private void runCommands(Player player, Collection<String> commands) {
         for (String command : commands) {
             // dispatchCommand() doesn't cope with a leading '/' in commands
             if (command.length() > 0 && command.charAt(0) == '/') {
