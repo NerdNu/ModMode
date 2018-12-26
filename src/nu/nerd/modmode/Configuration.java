@@ -162,7 +162,9 @@ class Configuration {
      * Save the configuration.
      */
     synchronized void save() {
-        _config.set("logged-out-vanished", new ArrayList<>(LOGGED_OUT_VANISHED));
+        _config.set("logged-out-vanished", new ArrayList<>(LOGGED_OUT_VANISHED.stream()
+                                                                              .map(UUID::toString)
+                                                                              .collect(Collectors.toList())));
         ModMode.getModModeCache().save(_config);
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());

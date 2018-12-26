@@ -18,7 +18,5 @@ debug:
 permissions:
   modmode-group: ModMode
   moderator-group: moderators
-  persistent-groups:
-  # - example.group:world_the_end
-  # - a.persistent.group:global
+  persistent-groups: []
   worlds: []
