@@ -1,67 +1,34 @@
 package nu.nerd.modmode;
 
-import me.lucko.luckperms.api.Contexts;
 import me.lucko.luckperms.api.LuckPermsApi;
-import me.lucko.luckperms.api.Node;
-import me.lucko.luckperms.api.User;
+import me.lucko.luckperms.api.Track;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
-
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class Permissions {
 
     private final LuckPermsApi API;
 
+    private static Track MODMODE_TRACK;
+    private static Track FOREIGN_SERVER_ADMINS_TRACK;
+
     Permissions() {
         RegisteredServiceProvider<LuckPermsApi> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPermsApi.class);
         if (svcProvider != null) {
             API = svcProvider.getProvider();
+            MODMODE_TRACK = getTrack("modmode-track");
+            FOREIGN_SERVER_ADMINS_TRACK = getTrack("foreign-server-admins-modmode-track");
         } else {
             API = null;
             ModMode.log("LuckPerms could not be found. Is it disabled or missing?");
             Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
         }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Returns a User instance corresponding to the given player.
-     *
-     * @param player the player.
-     * @return the User instance.
-     */
-    private User getUser(Player player) {
-        UUID uuid = player.getUniqueId();
-        if (API.isUserLoaded(uuid)) {
-            return API.getUser(uuid);
-        } else {
-            return API.getUserManager().loadUser(uuid).join();
+        if (MODMODE_TRACK == null) {
+            ModMode.log("Track modmode-track could not be found.");
         }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Returns a Node instance for the given group. Consults cache before
-     * doing a lookup.
-     *
-     * @param group the group.
-     * @return the node.
-     */
-    private Node getGroupNode(String group) {
-        if (_nodeCache.containsKey(group)) {
-            return _nodeCache.get(group);
-        } else {
-            Node node = API.getNodeFactory()
-                           .makeGroupNode(group)
-                           .setExtraContext(Contexts.global().getContexts())
-                           .build();
-            _nodeCache.put(group, node);
-            return node;
+        if (FOREIGN_SERVER_ADMINS_TRACK == null) {
+            ModMode.log("Track modmode-track could not be found.");
         }
     }
 
@@ -81,63 +48,57 @@ public class Permissions {
 
     // ------------------------------------------------------------------------
     /**
-     * Adds the player to the given group.
+     * Gets the Track with the given name, or null if it does not exist.
      *
-     *  @param player the player.
-     * @param group the group to add.
+     * @param name the name of the Track.
+     * @return the Track, or null if it does not exist.
      */
-    void addGroup(Player player, String group) {
-        changeGroup(player, group, true);
+    Track getTrack(String name) {
+        if (API.isTrackLoaded(name)) {
+            return API.getTrack(name);
+        } else {
+            return API.getTrackManager().loadTrack(name).join().orElse(null);
+        }
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Removes the player from the given group.
-     *
-     *  @param player the player.
-     * @param group the group to remove.
-     */
-    void removeGroup(Player player, String group) {
-        changeGroup(player, group, false);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * If add is true, the group will be added to the user; likewise removed
-     * if false.
+     * Returns the modmode track if the player is a moderator, or the foreign
+     * server admins modmode track if the player is a foreign server admin.
      *
      * @param player the player.
-     * @param group the group.
-     * @param add true to add, false to remove.
+     * @return the modmode track if the player is a moderator, or the foreign
+     * server admins modmode track if the player is a foreign server admin.
      */
-    private void changeGroup(Player player, String group, boolean add) {
-        User user = getUser(player);
-        Node node = getGroupNode(group);
-        if (add) user.setPermission(node); else user.unsetPermission(node);
-        API.getUserManager().saveUser(user);
+    private Track getAppropriateTrack(Player player) {
+        if (player.hasPermission("group.foreignserveradmins")) {
+            return FOREIGN_SERVER_ADMINS_TRACK;
+        } else {
+            return MODMODE_TRACK;
+        }
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Returns all of a player's groups as a set.
+     * Promotes the player along the track corresponding to their primary group.
      *
-     * @param player the player.
-     * @return a set of groups.
+     * @param player the player to promote.
      */
-    HashSet<String> getGroups(Player player) {
-        User user = getUser(player);
-        return user.getAllNodes()
-                   .stream()
-                   .filter(Node::isGroupNode)
-                   .map(Node::getGroupName)
-                   .collect(Collectors.toCollection(HashSet::new));
+    void promote(Player player) {
+        Track track = getAppropriateTrack(player);
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " promote " + track.getName());
     }
 
     // ------------------------------------------------------------------------
     /**
-     * A cache of previously built Nodes.
+     * Demotes the player along the track corresponding to their primary group.
+     *
+     * @param player the player to demote.
      */
-    private final HashMap<String, Node> _nodeCache = new HashMap<>();
+    void demote(Player player) {
+        Track track = getAppropriateTrack(player);
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " demote " + track.getName());
+    }
 
     private static final String MODMODE = "modmode.";
     public static final String VANISH = MODMODE + "vanish";

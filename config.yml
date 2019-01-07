@@ -1,3 +1,5 @@
+server: pve-dev
+
 allow:
   flight: true
   collisions: true

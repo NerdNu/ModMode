@@ -22,7 +22,6 @@ import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 
 import java.io.File;
-import java.util.HashSet;
 import java.util.List;
 
 // ------------------------------------------------------------------------
@@ -402,18 +401,14 @@ public class ModMode extends JavaPlugin {
         }
 
         if (!enabled) {
-            // remove ModMode node
-            PERMISSIONS.removeGroup(player, CONFIG.MODMODE_GROUP);
-
-            // re-add the player's serialized groups
-            List<String> serializedGroups = Configuration.getSerializedGroups(player);
-            serializedGroups.forEach(group -> PERMISSIONS.addGroup(player, group));
-
-            // When leaving ModMode, Admins return to their persistent vanish
-            // state; Moderators become visible
             if (PERMISSIONS.isAdmin(player)) {
+                // When leaving ModMode, Admins return to their persistent vanish
+                // state
                 setVanish(player, Configuration.loggedOutVanished(player));
             } else {
+                // luckperms: demote from modmode back to moderator group
+                PERMISSIONS.demote(player);
+                // always reappear
                 setVanish(player, false);
                 if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
                     getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
@@ -422,33 +417,22 @@ public class ModMode extends JavaPlugin {
 
             // remove from ModMode cache
             MODMODE_CACHE.remove(player);
-
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
         } else {
-            // clean up old mappings
-            Configuration.sanitizeSerializedGroups(player);
-
-            // get & serialize player's current groups
-            HashSet<String> nodes = PERMISSIONS.getGroups(player);
-            Configuration.serializeGroups(player, nodes);
-
-            // remove all groups that are not configured to be persistent
-            nodes.stream()
-                 .filter(group -> !Configuration.isPersistentGroup(group))
-                 .forEach(group -> PERMISSIONS.removeGroup(player, group));
-
-            // apply the ModMode node
-            PERMISSIONS.addGroup(player, CONFIG.MODMODE_GROUP);
+            if (!player.hasPermission(Permissions.ADMIN)) {
+                // promote moderators along modmode track to give modmod perms;
+                // admin perms stay as-is
+                PERMISSIONS.promote(player);
+            } else {
+                // Always vanish when entering ModMode. Record the old vanish state for admins only.
+                setPersistentVanishState(player);
+            }
 
             // add to ModMode cache
             MODMODE_CACHE.add(player);
 
-            // Always vanish when entering ModMode. Record the old vanish state for admins only.
-            if (PERMISSIONS.isAdmin(player)) {
-                setPersistentVanishState(player);
-            }
-
-            setVanish(player, true);
+            // brief half-second delay to allow luckperms to catch up
+            Bukkit.getScheduler().runTaskLater(this, () -> setVanish(player, true), 10);
             player.sendMessage(ChatColor.RED + "You are now in ModMode!");
         }
 
