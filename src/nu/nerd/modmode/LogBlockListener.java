@@ -29,8 +29,14 @@ public class LogBlockListener implements Listener {
      */
     @EventHandler
     public void onLogBlockPreLogEvent(BlockChangePreLogEvent event) {
-        UUID actorUUID = UUID.fromString(event.getOwnerActor().getUUID());
-        Player player = ModMode.PLUGIN.getServer().getPlayer(actorUUID);
+        Player player;
+        try {
+            UUID actorUUID = UUID.fromString(event.getOwnerActor().getUUID());
+            player = ModMode.PLUGIN.getServer().getPlayer(actorUUID);
+        } catch (Exception e) {
+            // probably liquid flow or something
+            return;
+        }
         if (player != null && ModMode.PLUGIN.isModMode(player)) {
             Actor actor = new Actor(ModMode.PLUGIN.getCleanModModeName(player));
             event.setOwner(actor);
