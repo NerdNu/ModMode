@@ -432,7 +432,7 @@ public class ModMode extends JavaPlugin {
             MODMODE_CACHE.add(player);
 
             // brief half-second delay to allow luckperms to catch up
-            Bukkit.getScheduler().runTaskLater(this, () -> setVanish(player, true), 10);
+            Bukkit.getScheduler().runTaskLater(this, () -> setVanish(player, true), Configuration.VANISH_DELAY);
             player.sendMessage(ChatColor.RED + "You are now in ModMode!");
         }
 

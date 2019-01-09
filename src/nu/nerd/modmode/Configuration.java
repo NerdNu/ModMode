@@ -116,6 +116,12 @@ class Configuration {
         ModMode.PLUGIN.reloadConfig();
         _config = ModMode.PLUGIN.getConfig();
 
+        VANISH_DELAY = _config.getInt("vanish-delay-ticks", 1);
+        if (VANISH_DELAY <= 0) {
+            ModMode.log("Configuration error: vanish-delay-ticks must be a positive integer");
+            VANISH_DELAY = 1;
+        }
+
         // clear logged-out-vanished list and repopulate from config
         LOGGED_OUT_VANISHED.clear();
         _config.getStringList("logged-out-vanished").stream()
@@ -257,5 +263,7 @@ class Configuration {
      * Commands executed immediately after ModMode is deactivated.
      */
     List<String> afterDeactivationCommands;
+
+    static int VANISH_DELAY;
 
 }
