@@ -1,7 +1,9 @@
 package nu.nerd.modmode;
 
+import com.destroystokyo.paper.event.entity.PhantomPreSpawnEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -31,6 +33,18 @@ public class ModModeListener implements Listener {
      */
     ModModeListener() {
         Bukkit.getPluginManager().registerEvents(this, ModMode.PLUGIN);
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Prevents phantoms from spawning above sleepy moderators.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPhantomSpawn(PhantomPreSpawnEvent e) {
+        Entity spawningEntity = e.getSpawningEntity();
+        if (spawningEntity instanceof Player && ModMode.PLUGIN.isModMode((Player) spawningEntity)) {
+            e.setShouldAbortSpawn(true);
+        }
     }
 
     // ------------------------------------------------------------------------
