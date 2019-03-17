@@ -38,9 +38,21 @@ public class LogBlockListener implements Listener {
             return;
         }
         if (player != null && ModMode.PLUGIN.isModMode(player)) {
-            Actor actor = new Actor(ModMode.PLUGIN.getCleanModModeName(player));
+            Actor actor = new Actor(getCleanModModeName(player));
             event.setOwner(actor);
         }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Returns a "clean" ModMode name for the given player by prepending the
+     * player's name with "modmode_".
+     *
+     * @param player the player.
+     * @return the player's ModMode name.
+     */
+    private static String getCleanModModeName(Player player) {
+        return "modmode_" + player.getName();
     }
 
 } // LogBlockListener

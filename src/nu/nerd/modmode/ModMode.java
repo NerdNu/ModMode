@@ -1,59 +1,56 @@
 package nu.nerd.modmode;
 
+import de.diddiz.LogBlock.LogBlock;
+import me.lucko.luckperms.LuckPerms;
 import nu.nerd.nerdboard.NerdBoard;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Chunk;
 import org.bukkit.GameMode;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.PluginCommand;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.potion.PotionEffect;
-import org.kitteh.vanish.VanishPerms;
-import org.kitteh.vanish.VanishPlugin;
 
-import java.io.File;
-import java.util.List;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 // ------------------------------------------------------------------------
 /**
- * The main plugin and command-handling class.
+ * The main plugin class.
  */
 public class ModMode extends JavaPlugin {
 
     /**
      * This plugin.
      */
-    static ModMode PLUGIN;
-
-    /**
-     * The permissions handler.
-     */
-    private static Permissions PERMISSIONS;
-
-    /**
-     * A cache of players (UUIDs) currently in ModMode.
-     */
-    static final AbstractPlayerCache MODMODE_CACHE = new AbstractPlayerCache("modmode");
-
-    /**
-     * The vanish plugin.
-     */
-    private VanishPlugin vanish;
+    public static ModMode PLUGIN;
 
     /**
      * This plugin's configuration.
      */
-    static Configuration CONFIG;
+    public static Configuration CONFIG;
+
+    /**
+     * Encapsulation of LuckPerms-related methods and permission constants.
+     */
+    private static Permissions PERMISSIONS;
+
+    /**
+     * Encapsulation of NerdBoard-related methods.
+     */
+    static NerdBoardHook NERDBOARD;
+
+    /**
+     * Cache of players currently in ModMode.
+     */
+    static final HashSet<UUID> MODMODE = new HashSet<>();
+
+    /**
+     * Cache of players currently vanished.
+     */
+    static final HashSet<UUID> VANISHED = new HashSet<>();
 
     // ------------------------------------------------------------------------
     /**
@@ -62,46 +59,36 @@ public class ModMode extends JavaPlugin {
     @Override
     public void onEnable() {
         PLUGIN = this;
-
-        // find and load NerdBoard
-        NerdBoard nerdBoard = NerdBoardHook.getNerdBoard();
-        if (nerdBoard != null) {
-            new NerdBoardHook(nerdBoard);
-        } else {
-            log("NerdBoard is required. http://github.com/nerdnu/NerdBoard");
-            getPluginLoader().disablePlugin(this);
-            return;
-        }
-
-        vanish = (VanishPlugin) getServer().getPluginManager().getPlugin("VanishNoPacket");
-        if (vanish == null) {
-            log("VanishNoPacket required. Download it here http://dev.bukkit.org/server-mods/vanish/");
-            getPluginLoader().disablePlugin(this);
-            return;
-        } else {
-            // Make sure that VanishNoPacket is enabled.
-            getPluginLoader().enablePlugin(vanish);
-
-            // Intercept the /vanish command and handle it here.
-            CommandExecutor ownExecutor = getCommand("modmode").getExecutor();
-            PluginCommand vanishCommand = vanish.getCommand("vanish");
-            vanishCommand.setExecutor(ownExecutor);
-            vanishCommand.setPermission(Permissions.VANISH);
-        }
-
-        if (getServer().getPluginManager().isPluginEnabled("LogBlock")) {
-            new LogBlockListener();
-        } else {
-            log("LogBlock missing or unloaded. Integration disabled.");
-        }
-
         CONFIG = new Configuration();
-
-        // instantiate the self-registering ModMode listener
         new ModModeListener();
+        new Commands();
 
-        // instantiate permissions handler
-        PERMISSIONS = new Permissions();
+        assertDependency("NerdBoard", NerdBoard.class, true,  p -> NERDBOARD = new NerdBoardHook((NerdBoard) p));
+        assertDependency("LogBlock",  LogBlock.class,  false, p -> new LogBlockListener());
+        assertDependency("LuckPerms", null,            true,  p -> PERMISSIONS = new Permissions(LuckPerms.getApi()));
+
+        Bukkit.getScheduler().runTaskTimer(ModMode.PLUGIN, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                UUID uuid = player.getUniqueId();
+                if (MODMODE.contains(uuid)) {
+                    player.sendActionBar(String.format("%sYou are currently %s", ChatColor.GREEN, "in ModMode"));
+                } else if (VANISHED.contains(uuid)) {
+                    player.sendActionBar(String.format("%sYou are currently %s", ChatColor.BLUE, "vanished"));
+                }
+            }
+        }, 1, 20);
+
+        Bukkit.getScheduler().runTaskTimer(ModMode.PLUGIN, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                for (Player otherPlayer : Bukkit.getOnlinePlayers()) {
+                    if (!otherPlayer.canSee(player)) {
+                        otherPlayer.hidePlayer(this, player);
+                    } else {
+                        otherPlayer.showPlayer(this, player);
+                    }
+                }
+            }
+        }, 1, 10);
     }
 
     // ------------------------------------------------------------------------
@@ -116,39 +103,129 @@ public class ModMode extends JavaPlugin {
 
     // ------------------------------------------------------------------------
     /**
-     * Returns the permissions handler.
+     * Asserts a plugin dependency by fetching the plugin from the loader by
+     * name, checking if it is an instance of pluginClass, and then supplies it
+     * to the consumer. If it is a hard dependency (if required is true), then
+     * this plugin will disable if the dependency is not found.
      *
-     * @return the permissions handler.
+     * @param name the name of the plugin.
+     * @param pluginClass the plugin class.
+     * @param required true if the plugin is a hard dependency.
+     * @param consumer the action to take if the plugin is found.
      */
-    static Permissions getPermissions() {
-        return PERMISSIONS;
-    }
-
-    static AbstractPlayerCache getModModeCache() {
-        return MODMODE_CACHE;
+    private void assertDependency(String name, Class pluginClass, boolean required, Consumer<Object> consumer) {
+        Plugin plugin = Bukkit.getPluginManager().getPlugin(name);
+        if (pluginClass != null && pluginClass.isInstance(plugin)) {
+            consumer.accept(pluginClass.cast(plugin));
+            return;
+        } else {
+            try {
+                consumer.accept(null);
+                return;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        if (required) {
+            log("Fatal error: " + name + " is required but could not be found.");
+            Bukkit.getPluginManager().disablePlugin(this);
+        } else {
+            log("Warn: " + name + " missing or unloaded. Integration disabled.");
+        }
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Return true if the player is currently vanished.
+     * Toggles the player's ModMode state.
      *
-     * @return true if the player is currently vanished.
+     * @param player the player.
      */
-    boolean isVanished(Player player) {
-        return vanish.getManager().isVanished(player);
+    void toggleModMode(Player player) {
+        final long timeStart = System.currentTimeMillis();
+        boolean isAdmin = player.hasPermission(Permissions.ADMIN);
+        boolean enteringModMode = !isModMode(player);
+        boolean vanished = enteringModMode || (isAdmin && CONFIG.loggedOutVanished(player));
+        runCommands(player, enteringModMode ? CONFIG.BEFORE_ACTIVATION_COMMANDS : CONFIG.BEFORE_DEACTIVATION_COMMANDS);
+        PERMISSIONS
+            .updatePermissions(player, enteringModMode) // off main thread
+            .thenRun(() -> { // back on main thread
+                if (enteringModMode) {
+                    MODMODE.add(player.getUniqueId());
+                } else {
+                    if (CONFIG.loggedOutVanished(player)) {
+                        if (!isAdmin) {
+                            getServer().broadcastMessage(CONFIG.getJoinMessage(player));
+                        }
+                        // we don't need to know this anymore
+                        CONFIG.setLoggedOutVanished(player, false);
+                    }
+                    MODMODE.remove(player.getUniqueId());
+                }
+                // Save player data for the old ModMode state and load for the new.
+                PlayerState.savePlayerData(player, !enteringModMode);
+                PlayerState.loadPlayerData(player, enteringModMode);
+
+                setVanished(player, vanished);
+                setTranscendentalAttributes(player);
+                runCommands(player, enteringModMode ? CONFIG.AFTER_ACTIVATION_COMMANDS : CONFIG.AFTER_DEACTIVATION_COMMANDS);
+                long duration = System.currentTimeMillis() - timeStart;
+                player.sendMessage(String.format("%sYou are %s in ModMode %s(took %d ms, %.2f ticks)",
+                    ChatColor.RED,
+                    enteringModMode ? "now" : "no longer",
+                    ChatColor.GRAY,
+                    duration,
+                    (double) duration/50));
+                log("Task took " + duration + " ms.");
+            });
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Save the current vanish state of the player as their persistent vanish
-     * state.
+     * Sets a player's transcendental attributes, i.e. makes them "leave no
+     * footprints," or so to speak.
      *
-     * This means different things depending on whether the player could
-     * normally vanish without being in ModMode. See the doc comment for
-     * {@link Configuration#LOGGED_OUT_VANISHED}.
+     * @param player the player.
      */
-    void setPersistentVanishState(Player player) {
-        Configuration.setLoggedOutVanished(player, vanish.getManager().isVanished(player));
+    private void setTranscendentalAttributes(Player player) {
+        boolean inModMode = PLUGIN.isModMode(player);
+        boolean isVanished = PLUGIN.isVanished(player);
+        boolean isTranscendental = PLUGIN.isTranscendental(player);
+        player.setAffectsSpawning(isTranscendental);
+        player.setAllowFlight((CONFIG.ALLOW_FLIGHT && inModMode) || player.getGameMode() == GameMode.CREATIVE);
+        player.setCanPickupItems(!isVanished);
+        player.setInvulnerable(isTranscendental);
+        player.setSleepingIgnored(isTranscendental);
+        player.setSilent(isTranscendental);
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Sets the player's current vanish state.
+     *
+     * @param player the player.
+     * @param vanishing true to vanish; false to unvanish.
+     */
+    void setVanished(Player player, boolean vanishing) {
+        UUID uuid = player.getUniqueId();
+        if (vanishing) {
+            VANISHED.add(uuid);
+            player.sendMessage(ChatColor.DARK_AQUA + "You have vanished. Poof.");
+            Bukkit.getScheduler().runTaskLater(this, () -> {
+                Bukkit.getOnlinePlayers().forEach(p -> {
+                    if (!Permissions.isAdmin(p) && !isModMode(p)) {
+                        p.hidePlayer(this, player);
+                    }
+                });
+            }, 1);
+        } else {
+            VANISHED.remove(uuid);
+            player.sendMessage(ChatColor.DARK_AQUA + "You are no longer vanished.");
+            Bukkit.getScheduler().runTaskLater(this, () -> {
+                Bukkit.getOnlinePlayers().forEach(p -> p.showPlayer(this, player));
+            }, 1);
+        }
+        NERDBOARD.reconcilePlayerWithVanishState(player);
+        setTranscendentalAttributes(player);
     }
 
     // ------------------------------------------------------------------------
@@ -158,316 +235,31 @@ public class ModMode extends JavaPlugin {
      * @param player the Player.
      * @return true if the player is currently in ModMode.
      */
-    synchronized boolean isModMode(Player player) {
-        return MODMODE_CACHE.contains(player);
+    public boolean isModMode(Player player) {
+        return MODMODE.contains(player.getUniqueId());
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Set the vanish state of the player.
-     *
-     * @param player the Player.
-     * @param vanished true if he should be vanished.
-     */
-    void setVanish(Player player, boolean vanished) {
-        if (vanish.getManager().isVanished(player) != vanished) {
-            vanish.getManager().toggleVanish(player);
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Try to coerce VanishNoPacket into showing or hiding players to each other
-     * based on their current vanish state and permissions.
-     *
-     * Just calling resetSeeing() when a moderator toggles ModMode (and hence
-     * permissions and vanish state) is apparently insufficient.
-     */
-    void updateAllPlayersSeeing() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            vanish.getManager().playerRefresh(player);
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Sends a list of currently-vanished players to the given CommandSender.
-     *
-     * @param sender the CommandSender.
-     */
-    private void showVanishList(CommandSender sender) {
-        StringBuilder result = new StringBuilder();
-        boolean first = true;
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-            if (vanish.getManager().isVanished(player)) {
-                if (first) {
-                    first = false;
-                } else {
-                    result.append(", ");
-                }
-                result.append(player.getName());
-            }
-        }
-
-        if (result.length() == 0) {
-            sender.sendMessage(ChatColor.RED + "All players are visible!");
-        } else {
-            sender.sendMessage(ChatColor.RED + "Vanished players: " + result);
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Returns a "clean" ModMode name for the given player by prepending the
-     * player's name with "modmode_".
+     * Returns true if the player is in ModMode *or* is vanished, i.e. in a
+     * transcendental state.
      *
      * @param player the player.
-     * @return the player's ModMode name.
+     * @return true if the player is in ModMode or is vanished.
      */
-    String getCleanModModeName(Player player) {
-        return "modmode_" + player.getName();
+    public boolean isTranscendental(Player player) {
+        return player != null && (isModMode(player) || isVanished(player));
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Return the File used to store the player's normal or ModMode state.
+     * Returns true if the given player is vanished.
      *
      * @param player the player.
-     * @param isModMode true if the data is for the ModMode state.
-     * @return the File used to store the player's normal or ModMode state.
+     * @return true if the player is vanished.
      */
-    private File getStateFile(Player player, boolean isModMode) {
-        File playersDir = new File(getDataFolder(), "players");
-        playersDir.mkdirs();
-
-        String fileName = player.getUniqueId().toString() + ((isModMode) ? "_modmode" : "_normal") + ".yml";
-        return new File(playersDir, fileName);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Save the player's data to a YAML configuration file.
-     *
-     * @param player the player.
-     * @param isModMode true if the saved data is for the ModMode inventory.
-     */
-    private void savePlayerData(Player player, boolean isModMode) {
-        File stateFile = getStateFile(player, isModMode);
-        if (CONFIG.debugPlayerData) {
-            log("savePlayerData(): " + stateFile);
-        }
-
-        // Keep 2 backups of saved player data.
-        try {
-            File backup1 = new File(stateFile.getPath() + ".1");
-            File backup2 = new File(stateFile.getPath() + ".2");
-            backup1.renameTo(backup2);
-            stateFile.renameTo(backup1);
-        } catch (Exception ex) {
-            String msg = " raised saving state file backups for " + player.getName()
-                             + " (" + player.getUniqueId().toString() + ").";
-            log(ex.getClass().getName() + msg);
-        }
-
-        YamlConfiguration config = new YamlConfiguration();
-        config.set("health", player.getHealth());
-        config.set("food", player.getFoodLevel());
-        config.set("experience", player.getLevel() + player.getExp());
-        config.set("world", player.getLocation().getWorld().getName());
-        config.set("x", player.getLocation().getX());
-        config.set("y", player.getLocation().getY());
-        config.set("z", player.getLocation().getZ());
-        config.set("pitch", player.getLocation().getPitch());
-        config.set("yaw", player.getLocation().getYaw());
-        config.set("helmet", player.getInventory().getHelmet());
-        config.set("chestplate", player.getInventory().getChestplate());
-        config.set("leggings", player.getInventory().getLeggings());
-        config.set("boots", player.getInventory().getBoots());
-        config.set("off-hand", player.getInventory().getItemInOffHand());
-        for (PotionEffect potion : player.getActivePotionEffects()) {
-            config.set("potions." + potion.getType().getName(), potion);
-        }
-        ItemStack[] inventory = player.getInventory().getContents();
-        for (int slot = 0; slot < inventory.length; ++slot) {
-            config.set("inventory." + slot, inventory[slot]);
-        }
-
-        ItemStack[] enderChest = player.getEnderChest().getContents();
-        for (int slot = 0; slot < enderChest.length; ++slot) {
-            config.set("enderchest." + slot, enderChest[slot]);
-        }
-
-        try {
-            config.save(stateFile);
-        } catch (Exception exception) {
-            log("Failed to save player data for " + player.getName() + "(" + player.getUniqueId().toString() + ")");
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Load the player's data from a YAML configuration file.
-     *
-     * @param player the player.
-     * @param isModMode true if the loaded data is for the ModMode inventory.
-     */
-    private void loadPlayerData(Player player, boolean isModMode) {
-        File stateFile = getStateFile(player, isModMode);
-        if (CONFIG.debugPlayerData) {
-            log("loadPlayerData(): " + stateFile);
-        }
-
-        YamlConfiguration config = new YamlConfiguration();
-        try {
-            config.load(stateFile);
-            player.setHealth(config.getDouble("health"));
-            player.setFoodLevel(config.getInt("food"));
-            float level = (float) config.getDouble("experience");
-            player.setLevel((int) Math.floor(level));
-            player.setExp(level - player.getLevel());
-
-            if (!isModMode) {
-                String world = config.getString("world");
-                double x = config.getDouble("x");
-                double y = config.getDouble("y");
-                double z = config.getDouble("z");
-                float pitch = (float) config.getDouble("pitch");
-                float yaw = (float) config.getDouble("yaw");
-                player.teleport(new Location(Bukkit.getWorld(world), x, y, z, yaw, pitch));
-            }
-
-            player.getEnderChest().clear();
-            player.getInventory().clear();
-            player.getInventory().setHelmet(config.getItemStack("helmet"));
-            player.getInventory().setChestplate(config.getItemStack("chestplate"));
-            player.getInventory().setLeggings(config.getItemStack("leggings"));
-            player.getInventory().setBoots(config.getItemStack("boots"));
-            player.getInventory().setItemInOffHand(config.getItemStack("off-hand"));
-
-            for (PotionEffect potion : player.getActivePotionEffects()) {
-                player.removePotionEffect(potion.getType());
-            }
-
-            ConfigurationSection potions = config.getConfigurationSection("potions");
-            if (potions != null) {
-                for (String key : potions.getKeys(false)) {
-                    PotionEffect potion = (PotionEffect) potions.get(key);
-                    player.addPotionEffect(potion);
-                }
-            }
-
-            ConfigurationSection inventory = config.getConfigurationSection("inventory");
-            if (inventory != null) {
-                for (String key : inventory.getKeys(false)) {
-                    try {
-                        int slot = Integer.parseInt(key);
-                        ItemStack item = inventory.getItemStack(key);
-                        player.getInventory().setItem(slot, item);
-                    } catch (Exception ex) {
-                        log("[ModMode] Exception while loading " + player.getName() + "'s inventory: " + ex);
-                    }
-                }
-            }
-
-            ConfigurationSection enderChest = config.getConfigurationSection("enderchest");
-            if (enderChest != null) {
-                for (String key : enderChest.getKeys(false)) {
-                    try {
-                        int slot = Integer.parseInt(key);
-                        ItemStack item = enderChest.getItemStack(key);
-                        player.getEnderChest().setItem(slot, item);
-                    } catch (Exception ex) {
-                        log("[ModMode] Exception while loading " + player.getName() + "'s ender chest: " + ex);
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            log("Failed to load player data for " + player.getName() + "(" + player.getUniqueId().toString() + ")");
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Sets the given player's ModMode status to the given state.
-     *
-     * @param player the player.
-     * @param enabled the state.
-     */
-    private void toggleModMode(final Player player, boolean enabled) {
-        if (enabled) {
-            runCommands(player, CONFIG.beforeActivationCommands);
-        } else {
-            runCommands(player, CONFIG.beforeDeactivationCommands);
-        }
-
-        if (!enabled) {
-            if (PERMISSIONS.isAdmin(player)) {
-                // When leaving ModMode, Admins return to their persistent vanish
-                // state
-                setVanish(player, Configuration.loggedOutVanished(player));
-            } else {
-                // luckperms: demote from modmode back to moderator group
-                PERMISSIONS.demote(player);
-                // always reappear
-                setVanish(player, false);
-                if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
-                    getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
-                }
-            }
-
-            // remove from ModMode cache
-            MODMODE_CACHE.remove(player);
-            player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
-        } else {
-            if (!player.hasPermission(Permissions.ADMIN)) {
-                // promote moderators along modmode track to give modmod perms;
-                // admin perms stay as-is
-                PERMISSIONS.promote(player);
-            } else {
-                // Always vanish when entering ModMode. Record the old vanish state for admins only.
-                setPersistentVanishState(player);
-            }
-
-            // add to ModMode cache
-            MODMODE_CACHE.add(player);
-
-            // brief half-second delay to allow luckperms to catch up
-            Bukkit.getScheduler().runTaskLater(this, () -> setVanish(player, true), Configuration.VANISH_DELAY);
-            player.sendMessage(ChatColor.RED + "You are now in ModMode!");
-        }
-
-        // Update the permissions that VanishNoPacket caches to match the new
-        // permissions of the player. This is highly dependent on this API
-        // method not doing anything more than what it currently does:
-        // to simply remove the cached VanishUser (permissions) object.
-        VanishPerms.userQuit(player);
-
-        // Update the nametage for the player
-        NerdBoardHook.reconcilePlayerWithVanishState(player);
-
-        // Update who sees whom AFTER permissions and vanish state changes.
-        updateAllPlayersSeeing();
-
-        // Save player data for the old ModMode state and load for the new.
-        savePlayerData(player, !enabled);
-        loadPlayerData(player, enabled);
-
-        // Hopefully stop some minor falls
-        player.setFallDistance(0F);
-
-        // Chunk error (resend to all clients).
-        World w = player.getWorld();
-        Chunk c = w.getChunkAt(player.getLocation());
-        w.refreshChunk(c.getX(), c.getZ());
-
-        restoreFlight(player, enabled);
-        CONFIG.save();
-
-        if (enabled) {
-            runCommands(player, CONFIG.afterActivationCommands);
-        } else {
-            runCommands(player, CONFIG.afterDeactivationCommands);
-        }
+    public boolean isVanished(Player player) {
+        return player != null && VANISHED.contains(player.getUniqueId());
     }
 
     // ------------------------------------------------------------------------
@@ -478,98 +270,7 @@ public class ModMode extends JavaPlugin {
      * @param isInModMode true if the player is in ModMode.
      */
     void restoreFlight(Player player, boolean isInModMode) {
-        player.setAllowFlight((isInModMode && CONFIG.allowFlight) || player.getGameMode() == GameMode.CREATIVE);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * @see CommandExecutor#onCommand(CommandSender, Command, String, String[]).
-     */
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String name, String[] args) {
-        if (command.getName().equalsIgnoreCase("vanishlist")) {
-            showVanishList(sender);
-            return true;
-        }
-
-        if (command.getName().equalsIgnoreCase("modmode")) {
-            cmdModMode(sender, args);
-            return true;
-        }
-
-        if (!isInGame(sender)) {
-            return true;
-        }
-
-        Player player = (Player) sender;
-        if (command.getName().equalsIgnoreCase("vanish")) {
-            if (args.length > 0 && args[0].equalsIgnoreCase("check")) {
-                String vanishText = isVanished(player) ? "vanished." : "visible.";
-                player.sendMessage(ChatColor.DARK_AQUA + "You are " + vanishText);
-            } else if (isVanished(player)) {
-                player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
-            } else {
-                setVanish(player, true);
-                NerdBoardHook.reconcilePlayerWithVanishState(player);
-            }
-        } else if (command.getName().equalsIgnoreCase("unvanish")) {
-            if (isVanished(player)) {
-                setVanish(player, false);
-                NerdBoardHook.reconcilePlayerWithVanishState(player);
-            } else {
-                player.sendMessage(ChatColor.DARK_AQUA + "You are already visible.");
-            }
-        }
-        return true;
-    } // onCommand
-
-    // ------------------------------------------------------------------------
-    /**
-     * Handle /modmode [save|reload] both for players in-game and the console.
-     *
-     * @param sender the command sender.
-     * @param args command arguments.
-     */
-    private void cmdModMode(CommandSender sender, String[] args) {
-        if (args.length == 0) {
-            if (isInGame(sender)) {
-                Player player = (Player) sender;
-                toggleModMode(player, !isModMode(player));
-            }
-        } else if (args.length == 1 && (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload"))) {
-            if (!sender.hasPermission(Permissions.OP)) {
-                sender.sendMessage(ChatColor.RED + "You don't have permission to use /modmode op commands.");
-                return;
-            }
-
-            if (args[0].equalsIgnoreCase("save")) {
-                CONFIG.save();
-                sender.sendMessage(ChatColor.GOLD + "ModMode configuration saved.");
-            } else if (args[0].equalsIgnoreCase("reload")) {
-                CONFIG.reload();
-                sender.sendMessage(ChatColor.GOLD + "ModMode configuration reloaded.");
-            }
-        } else {
-            sender.sendMessage(ChatColor.RED + "Usage: /modmode [save | reload]");
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Return true if the CommandSender is a Player (in-game).
-     *
-     * If the command sender is not in game, tell them they need to be in-game
-     * to use the current command.
-     *
-     * @param sender the command sender.
-     * @return true if the CommandSender is a Player (in-game).
-     */
-    private boolean isInGame(CommandSender sender) {
-        boolean inGame = (sender instanceof Player);
-        if (!inGame) {
-            sender.sendMessage("You need to be in-game to use this command.");
-        }
-        return inGame;
+        player.setAllowFlight((isInModMode && CONFIG.ALLOW_FLIGHT) || player.getGameMode() == GameMode.CREATIVE);
     }
 
     // ------------------------------------------------------------------------
@@ -579,7 +280,7 @@ public class ModMode extends JavaPlugin {
      * @param player the moderator causing the commands to run.
      * @param commands the commands to run.
      */
-    private void runCommands(Player player, List<String> commands) {
+    private void runCommands(Player player, LinkedHashSet<String> commands) {
         for (String command : commands) {
             // dispatchCommand() doesn't cope with a leading '/' in commands
             if (command.length() > 0 && command.charAt(0) == '/') {
@@ -610,6 +311,10 @@ public class ModMode extends JavaPlugin {
     /**
      * This plugin's prefix as a string; for logging.
      */
-    private static final String PREFIX = ChatColor.DARK_GRAY + "[" + ChatColor.GREEN + "ModMode" + ChatColor.DARK_GRAY + "] ";
+    private static final String PREFIX = String.format("%s[%sModMode%s]%s",
+        ChatColor.DARK_GRAY,
+        ChatColor.GREEN,
+        ChatColor.DARK_GRAY,
+        ChatColor.RESET);
 
 } // ModMode

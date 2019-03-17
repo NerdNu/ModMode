@@ -1,3 +1,5 @@
+server: pve-dev
+
 vanish-delay-ticks: 20
 
 allow:

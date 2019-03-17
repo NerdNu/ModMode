@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>nu.nerd</groupId>
     <artifactId>ModMode</artifactId>
-    <version>4.0.5-SNAPSHOT</version>
+    <version>5.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>ModMode</name>
     <properties>
@@ -37,12 +37,6 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.kitteh</groupId>
-            <artifactId>VanishNoPacket</artifactId>
-            <version>3.19.1</version>
-            <type>jar</type>
-        </dependency>
-        <dependency>
             <groupId>de.diddiz</groupId>
             <artifactId>logblock</artifactId>
             <version>dev-SNAPSHOT</version>
@@ -59,10 +53,6 @@
         <repository>
             <id>vault-repo</id>
             <url>http://nexus.hc.to/content/repositories/pub_releases</url>
-        </repository>
-        <repository>
-            <id>kitteh-repo</id>
-            <url>http://repo.kitteh.org/content/groups/public</url>
         </repository>
         <repository>
             <id>papermc</id>

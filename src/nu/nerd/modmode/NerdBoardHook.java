@@ -18,7 +18,7 @@ final class NerdBoardHook {
     /**
      * The NerdBoard instance.
      */
-    private static NerdBoard _nerdBoard;
+    private final NerdBoard _nerdBoard;
 
     // ------------------------------------------------------------------------
     /**
@@ -30,52 +30,9 @@ final class NerdBoardHook {
         _nerdBoard = nerdBoard;
         _scoreboard = nerdBoard.getScoreboard();
 
-        _modModeTeam = configureTeam("Mod Mode", ChatColor.GREEN, true);
-        _vanishedTeam = configureTeam("Vanished", ChatColor.BLUE, true);
+        _modModeTeam = configureTeam("Mod Mode", ChatColor.GREEN, ModMode.CONFIG.ALLOW_COLLISIONS);
+        _vanishedTeam = configureTeam("Vanished", ChatColor.BLUE, ModMode.CONFIG.ALLOW_COLLISIONS);
         _defaultTeam = configureTeam("Default", null, false);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Sets whether or not default players can collide with vanished players.
-     *
-     * @param state true if the collisions should be allowed.
-     */
-    static void setAllowCollisions(boolean state) {
-        _allowCollisions = state;
-        _defaultTeam.setOption(Team.Option.COLLISION_RULE, boolToStatus(state));
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Returns true if collisions between default players and vanished players
-     * are allowed.
-     *
-     * @return true if collisions between default players and vanished players
-     *         are allowed.
-     */
-    static boolean allowsCollisions() {
-        return _allowCollisions;
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Configures a {@link Team} with the given name, color, and collision
-     * status.
-     *
-     * @param name the name of the team.
-     * @param color (nullable) the team's color (i.e. player name color).
-     * @param collisions if entity collisions should be enabled for
-     *                        players on this team.
-     * @return a {@link Team} with the given properties.
-     */
-    private static Team configureTeam(String name, ChatColor color, boolean collisions) {
-        Team team = getOrCreateTeam(name);
-        if (color != null) {
-            team.setColor(color);
-        }
-        team.setOption(Team.Option.COLLISION_RULE, boolToStatus(collisions));
-        return team;
     }
 
     // ------------------------------------------------------------------------
@@ -94,13 +51,33 @@ final class NerdBoardHook {
 
     // ------------------------------------------------------------------------
     /**
+     * Configures a {@link Team} with the given name, color, and collision
+     * status.
+     *
+     * @param name the name of the team.
+     * @param color (nullable) the team's color (i.e. player name color).
+     * @param collisions if entity collisions should be enabled for
+     *                        players on this team.
+     * @return a {@link Team} with the given properties.
+     */
+    private Team configureTeam(String name, ChatColor color, boolean collisions) {
+        Team team = getOrCreateTeam(name);
+        if (color != null) {
+            team.setColor(color);
+        }
+        team.setOption(Team.Option.COLLISION_RULE, boolToStatus(collisions));
+        return team;
+    }
+
+    // ------------------------------------------------------------------------
+    /**
      * Look up a Team by name in the Scoreboard, or create a new one with the
      * specified name if not found.
      *
      * @param name the Team name.
      * @return the Team with that name.
      */
-    private static Team getOrCreateTeam(String name) {
+    private Team getOrCreateTeam(String name) {
         Team team = _scoreboard.getTeam(name);
         if (team == null) {
             team = _nerdBoard.addTeam(name);
@@ -118,11 +95,16 @@ final class NerdBoardHook {
      *
      * @param player the player.
      */
-    static void reconcilePlayerWithVanishState(Player player) {
+    @SuppressWarnings("deprecation")
+    void reconcilePlayerWithVanishState(Player player) {
         boolean inModMode = ModMode.PLUGIN.isModMode(player);
         boolean isVanished = ModMode.PLUGIN.isVanished(player);
-        Team team = inModMode ? _modModeTeam : (isVanished ? _vanishedTeam
-                                                           : _defaultTeam);
+        Team team;
+        if (inModMode) {
+            team = _modModeTeam;
+        } else {
+            team = isVanished ? _vanishedTeam : _defaultTeam;
+        }
         _nerdBoard.addPlayerToTeam(team, player);
         if (player.getScoreboard() != _scoreboard) {
             player.setScoreboard(_scoreboard);
@@ -142,26 +124,15 @@ final class NerdBoardHook {
         return bool ? Team.OptionStatus.ALWAYS : Team.OptionStatus.NEVER;
     }
 
-    /**
-     * Allow collisions between unvanished players. Vanished staff are never
-     * collidable.
-     */
-    private static boolean _allowCollisions;
-
-    /**
-     * Scoreboard API stuff for colored name tags
-     */
-    private static Scoreboard _scoreboard;
-
-    private static Team _modModeTeam;
-
-    private static Team _vanishedTeam;
+    private Scoreboard _scoreboard;
+    private Team _modModeTeam;
+    private Team _vanishedTeam;
 
     /**
      * Players who are not in ModMode or vanished are added to this team so that
      * we can control their collidability. LivingEntity.setCollidable() is
      * broken: https://hub.spigotmc.org/jira/browse/SPIGOT-2069
      */
-    private static Team _defaultTeam;
+    private Team _defaultTeam;
 
 } // NerdBoardHook

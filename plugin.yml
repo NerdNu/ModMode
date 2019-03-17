@@ -7,7 +7,7 @@ website: ${project.url}
 
 main: nu.nerd.modmode.ModMode
 softdepend: [TagAPI, LogBlock]
-depend: [Vault, VanishNoPacket, NerdBoard]
+depend: [LuckPerms, NerdBoard]
 
 api-version: 1.13
 
@@ -24,6 +24,9 @@ commands:
   modmode:
     description: Toggle ModMode
     permission: modmode.toggle
+  savekit:
+    description: Set the ModMode kit.
+    permission: modmode.op
 
 permissions:
   modmode:

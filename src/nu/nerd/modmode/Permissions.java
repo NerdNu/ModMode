@@ -2,34 +2,38 @@ package nu.nerd.modmode;
 
 import me.lucko.luckperms.api.LuckPermsApi;
 import me.lucko.luckperms.api.Track;
-import org.bukkit.Bukkit;
+import me.lucko.luckperms.api.User;
+import me.lucko.luckperms.api.context.ContextSet;
+import me.lucko.luckperms.api.event.EventBus;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.RegisteredServiceProvider;
+
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class Permissions {
 
     private final LuckPermsApi API;
 
+    private final EventBus EVENT_BUS;
+
     private static Track MODMODE_TRACK;
     private static Track FOREIGN_SERVER_ADMINS_TRACK;
 
-    Permissions() {
-        RegisteredServiceProvider<LuckPermsApi> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPermsApi.class);
-        if (svcProvider != null) {
-            API = svcProvider.getProvider();
-            MODMODE_TRACK = getTrack("modmode-track");
-            FOREIGN_SERVER_ADMINS_TRACK = getTrack("foreign-server-admins-modmode-track");
-        } else {
-            API = null;
-            ModMode.log("LuckPerms could not be found. Is it disabled or missing?");
-            Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
-        }
+    Permissions(LuckPermsApi api) {
+        API = api;
+        EVENT_BUS = api.getEventBus();
+        MODMODE_TRACK = getTrack("modmode-track");
+        FOREIGN_SERVER_ADMINS_TRACK = getTrack("foreign-server-admins-modmode-track");
         if (MODMODE_TRACK == null) {
             ModMode.log("Track modmode-track could not be found.");
         }
         if (FOREIGN_SERVER_ADMINS_TRACK == null) {
             ModMode.log("Track modmode-track could not be found.");
         }
+    }
+
+    public static boolean canModMode(Player player) {
+        return player.hasPermission(TOGGLE);
     }
 
     // ------------------------------------------------------------------------
@@ -42,23 +46,20 @@ public class Permissions {
      *
      * @return true for Admins, false for Moderators and default players.
      */
-    boolean isAdmin(Player player) {
+    public static boolean isAdmin(Player player) {
         return player.hasPermission(ADMIN);
     }
 
     // ------------------------------------------------------------------------
     /**
      * Gets the Track with the given name, or null if it does not exist.
+     * According to the LuckPerms documentation, tracks are always kept loaded.
      *
      * @param name the name of the Track.
      * @return the Track, or null if it does not exist.
      */
-    Track getTrack(String name) {
-        if (API.isTrackLoaded(name)) {
-            return API.getTrack(name);
-        } else {
-            return API.getTrackManager().loadTrack(name).join().orElse(null);
-        }
+    private Track getTrack(String name) {
+        return API.getTrack(name);
     }
 
     // ------------------------------------------------------------------------
@@ -78,26 +79,39 @@ public class Permissions {
         }
     }
 
-    // ------------------------------------------------------------------------
-    /**
-     * Promotes the player along the track corresponding to their primary group.
-     *
-     * @param player the player to promote.
-     */
-    void promote(Player player) {
-        Track track = getAppropriateTrack(player);
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " promote " + track.getName());
+    private CompletableFuture<User> getUser(Player player) {
+        if (player == null) {
+            return null;
+        }
+        UUID uuid = player.getUniqueId();
+        if (API.isUserLoaded(uuid)) {
+            return CompletableFuture.completedFuture(API.getUser(uuid));
+        } else {
+            return API.getUserManager().loadUser(uuid);
+        }
     }
 
-    // ------------------------------------------------------------------------
-    /**
-     * Demotes the player along the track corresponding to their primary group.
-     *
-     * @param player the player to demote.
-     */
-    void demote(Player player) {
-        Track track = getAppropriateTrack(player);
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " demote " + track.getName());
+    CompletableFuture<Void> updatePermissions(Player player, boolean promote) {
+        CompletableFuture<User> futureUser = getUser(player);
+        if (isAdmin(player)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return futureUser.thenComposeAsync(user -> CompletableFuture.supplyAsync(() -> {
+                if (user != null && !isAdmin(player)) {
+                    Track track = getAppropriateTrack(player);
+                    if (promote) {
+                        track.promote(user, ContextSet.empty());
+                    } else {
+                        track.demote(user, ContextSet.empty());
+                    }
+                    return user;
+                }
+                return null;
+         })).thenAcceptAsync(u -> {
+             if (u != null) {
+                 API.getUserManager().saveUser(u);
+             }
+        });
     }
 
     private static final String MODMODE = "modmode.";
