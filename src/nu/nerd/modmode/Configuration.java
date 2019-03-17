@@ -1,6 +1,5 @@
 package nu.nerd.modmode;
 
-import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -30,12 +29,6 @@ class Configuration {
      * If true, player data loads and saves are logged to the console.
      */
     public boolean DEBUG;
-
-    /**
-     * The name of the server on which this plugin is running. This should
-     * match the name of the server in the LuckPerms config.
-     */
-    public String SERVER_NAME;
 
     /**
      * If true, players in ModMode will be able to fly.
@@ -86,13 +79,6 @@ class Configuration {
         ModMode.PLUGIN.saveDefaultConfig();
         ModMode.PLUGIN.reloadConfig();
         _config = ModMode.PLUGIN.getConfig();
-
-        SERVER_NAME = _config.getString("server", null);
-        if (SERVER_NAME == null) {
-            ModMode.log("Fatal error: server not defined in config.yml.");
-            Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
-            return;
-        }
 
         DEBUG = _config.getBoolean("debug.playerdata");
         ALLOW_FLIGHT = _config.getBoolean("allow.flight", true);
