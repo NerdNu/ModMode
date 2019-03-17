@@ -1,16 +1,12 @@
 package nu.nerd.modmode;
 
-import com.destroystokyo.paper.event.entity.PhantomPreSpawnEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
@@ -33,18 +29,6 @@ public class ModModeListener implements Listener {
      */
     ModModeListener() {
         Bukkit.getPluginManager().registerEvents(this, ModMode.PLUGIN);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Prevents phantoms from spawning above sleepy moderators.
-     */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPhantomSpawn(PhantomPreSpawnEvent e) {
-        Entity spawningEntity = e.getSpawningEntity();
-        if (spawningEntity instanceof Player && ModMode.PLUGIN.isTranscendental((Player) spawningEntity)) {
-            e.setShouldAbortSpawn(true);
-        }
     }
 
     // ------------------------------------------------------------------------
@@ -92,20 +76,6 @@ public class ModModeListener implements Listener {
 
     // ------------------------------------------------------------------------
     /**
-     * Disallows vanished players from picking up items.
-     */
-    @EventHandler(ignoreCancelled = true)
-    public void onPlayerPickupItem(EntityPickupItemEvent e) {
-        if (e.getEntity() instanceof Player) {
-            Player player = (Player) e.getEntity();
-            if (ModMode.PLUGIN.isVanished(player)) {
-                e.setCancelled(true);
-            }
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
      * Disallows vanished players and players in ModMode from dropping items.
      */
     @EventHandler
@@ -137,30 +107,11 @@ public class ModModeListener implements Listener {
      */
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
-        // block PVP with a message
-        if (event instanceof EntityDamageByEntityEvent) {
-            EntityDamageByEntityEvent e = (EntityDamageByEntityEvent) event;
-            if (e.getDamager() instanceof Player && e.getEntity() instanceof Player) {
-                Player damager = (Player) e.getDamager();
-                Player victim = (Player) e.getEntity();
-                if (ModMode.PLUGIN.isTranscendental(damager)) {
-                    event.setCancelled(true);
-                } else if (ModMode.PLUGIN.isModMode(victim) && !ModMode.PLUGIN.isVanished(victim)) {
-                    // only show message if they aren't invisible
-                    damager.sendMessage("This moderator is in ModMode.");
-                    damager.sendMessage("ModMode should only be used for official server business.");
-                    damager.sendMessage("Please let an admin know if a moderator is abusing ModMode.");
-                }
-            }
-        }
-
-        // block all damage to invisible and modmode players
         if (event.getEntity() instanceof Player) {
             Player victim = (Player) event.getEntity();
             if (ModMode.PLUGIN.isTranscendental(victim)) {
                 // Extinguish view-obscuring fires.
                 victim.setFireTicks(0);
-                event.setCancelled(true);
             }
         }
     }
