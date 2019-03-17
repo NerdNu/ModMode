@@ -71,7 +71,11 @@ public class ModMode extends JavaPlugin {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 UUID uuid = player.getUniqueId();
                 if (MODMODE.contains(uuid)) {
-                    player.sendActionBar(String.format("%sYou are currently %s", ChatColor.GREEN, "in ModMode"));
+                    String state = ChatColor.GREEN + "You are currently in ModMode";
+                    if (!VANISHED.contains(uuid)) {
+                        state += ChatColor.GRAY + " (" + ChatColor.RED + "unvanished" + ChatColor.GRAY + ")";
+                    }
+                    player.sendActionBar(state);
                 } else if (VANISHED.contains(uuid)) {
                     player.sendActionBar(String.format("%sYou are currently %s", ChatColor.BLUE, "vanished"));
                 }

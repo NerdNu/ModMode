@@ -12,6 +12,8 @@ import org.bukkit.inventory.PlayerInventory;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class Commands implements TabExecutor {
 
@@ -69,9 +71,7 @@ public class Commands implements TabExecutor {
         boolean isVanished = ModMode.PLUGIN.isVanished(player);
         if (command.getName().equalsIgnoreCase("vanish")) {
             if (args.length > 0 && args[0].equalsIgnoreCase("check")) {
-                player.sendMessage(String.format("%sYou are %s.",
-                    ChatColor.DARK_AQUA,
-                    isVanished ? "vanished" : "visible"));
+                player.sendMessage(String.format("%sYou are %s.", ChatColor.DARK_AQUA, isVanished ? "vanished" : "visible"));
             } else if (isVanished) {
                 player.sendMessage(ChatColor.DARK_AQUA + "You are already vanished.");
             } else {
@@ -147,22 +147,14 @@ public class Commands implements TabExecutor {
      * @param sender the CommandSender.
      */
     private void showVanishList(CommandSender sender) {
-        StringBuilder result = new StringBuilder();
-        boolean first = true;
-        for (Player player : Bukkit.getServer().getOnlinePlayers()) {
-            if (ModMode.PLUGIN.isVanished(player)) {
-                if (first) {
-                    first = false;
-                } else {
-                    result.append(", ");
-                }
-                result.append(player.getName());
-            }
-        }
-        if (result.length() == 0) {
+        if (ModMode.VANISHED.isEmpty()) {
             sender.sendMessage(ChatColor.RED + "All players are visible!");
         } else {
-            sender.sendMessage(ChatColor.RED + "Vanished players: " + result);
+            String vanishList = ModMode.VANISHED.stream().map(Bukkit::getPlayer)
+                .filter(Objects::nonNull)
+                .map(Player::getName)
+                .collect(Collectors.joining(", "));
+            sender.sendMessage(ChatColor.RED + "Vanished players: " + vanishList);
         }
     }
 
