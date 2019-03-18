@@ -153,6 +153,7 @@ public class ModMode extends JavaPlugin {
         PERMISSIONS
             .updatePermissions(player, enteringModMode) // off main thread
             .thenRun(() -> { // back on main thread
+                Bukkit.getScheduler().runTask(this, () -> { // no indent for small diff
                 if (enteringModMode) {
                     MODMODE.add(player.getUniqueId());
                 } else {
@@ -180,6 +181,7 @@ public class ModMode extends JavaPlugin {
                     duration,
                     (double) duration/50));
                 log("Task took " + duration + " ms.");
+                });
             });
     }
 
