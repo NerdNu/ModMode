@@ -49,6 +49,9 @@ public class Commands implements TabExecutor {
                         PlayerInventory inventory = player.getInventory();
                         ItemStack item = inventory.getItem(i);
                         ItemStack kitItem = kit.get(i);
+                        if (kitItem == null) {
+                            continue;
+                        }
                         if (item != null && item.getType() != Material.AIR) {
                             inventory.addItem(kitItem).isEmpty();
                         } else {
