@@ -1,24 +1,27 @@
 package nu.nerd.modmode;
 
-import me.lucko.luckperms.api.LuckPermsApi;
-import me.lucko.luckperms.api.Track;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
+import me.lucko.luckperms.api.LuckPermsApi;
+import me.lucko.luckperms.api.Track;
+
+// ----------------------------------------------------------------------------
+/**
+ * A wrapper around the LuckPerms API to provide only the abstractions we need.
+ */
 public class Permissions {
-
-    private final LuckPermsApi API;
-
-    private static Track MODMODE_TRACK;
-    private static Track FOREIGN_SERVER_ADMINS_TRACK;
-
+    // ------------------------------------------------------------------------
+    /**
+     * Constructor.
+     */
     Permissions() {
         RegisteredServiceProvider<LuckPermsApi> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPermsApi.class);
         if (svcProvider != null) {
             API = svcProvider.getProvider();
-            MODMODE_TRACK = getTrack("modmode-track");
-            FOREIGN_SERVER_ADMINS_TRACK = getTrack("foreign-server-admins-modmode-track");
+            MODMODE_TRACK = getTrack(ModMode.CONFIG.MODMODE_TRACK_NAME);
+            FOREIGN_SERVER_ADMINS_TRACK = getTrack(ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME);
         } else {
             API = null;
             ModMode.log("LuckPerms could not be found. Is it disabled or missing?");
@@ -26,9 +29,11 @@ public class Permissions {
         }
         if (MODMODE_TRACK == null) {
             ModMode.log("Track modmode-track could not be found.");
+            Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
         }
         if (FOREIGN_SERVER_ADMINS_TRACK == null) {
             ModMode.log("Track modmode-track could not be found.");
+            Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
         }
     }
 
@@ -37,8 +42,8 @@ public class Permissions {
      * Return true if the player has Admin permissions.
      *
      * That is, the player has permissions in excess of those of the ModMode
-     * permission group. This is a different concept from Permissions.OP,
-     * which merely signifies that the player can administer this plugin.
+     * permission group. This is a different concept from Permissions.OP, which
+     * merely signifies that the player can administer this plugin.
      *
      * @return true for Admins, false for Moderators and default players.
      */
@@ -68,7 +73,8 @@ public class Permissions {
      *
      * @param player the player.
      * @return the modmode track if the player is a moderator, or the foreign
-     * server admins modmode track if the player is a foreign server admin.
+     *         server admins modmode track if the player is a foreign server
+     *         admin.
      */
     private Track getAppropriateTrack(Player player) {
         if (player.hasPermission("group.foreignserveradmins")) {
@@ -100,10 +106,49 @@ public class Permissions {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " demote " + track.getName());
     }
 
+    // ------------------------------------------------------------------------
+    /**
+     * Prefix of permission nodes.
+     */
     private static final String MODMODE = "modmode.";
+
+    /**
+     * Permission to alter vanish state.
+     */
     public static final String VANISH = MODMODE + "vanish";
+
+    /**
+     * Permission to toggle ModMode state.
+     */
     public static final String TOGGLE = MODMODE + "toggle";
+
+    /**
+     * Tags the user as an admin, whose permissions will not change along a
+     * track (because they are already in the ModMode group).
+     * 
+     * @TODO: This seems a bit redundant (review code).
+     * @TODO: Check current permissions in light of this discovery.
+     */
     public static final String ADMIN = MODMODE + "admin";
+
+    /**
+     * Permission to use administer the plugin as a console user/operator.
+     */
     public static final String OP = MODMODE + "op";
+
+    /**
+     * LuckPerms API instance.
+     */
+    private final LuckPermsApi API;
+
+    /**
+     * Moderator -> ModMode Track instance.
+     */
+    private static Track MODMODE_TRACK;
+
+    /**
+     * Foreign Server Admin -> ModMode Track instance.
+     */
+    private static Track FOREIGN_SERVER_ADMINS_TRACK;
 
 }

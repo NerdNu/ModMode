@@ -1,14 +1,14 @@
 package nu.nerd.modmode;
 
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Player;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-// ------------------------------------------------------------------------
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
+
+// ----------------------------------------------------------------------------
 /**
  * Represents an abstract cache of players.
  */
@@ -17,7 +17,7 @@ class AbstractPlayerCache {
     /**
      * The cache of players.
      */
-    private final HashSet<UUID> CACHE = new HashSet<>();
+    private HashSet<UUID> CACHE = new HashSet<>();
 
     /**
      * This cache's YAML key, for (de)serialization.
@@ -40,7 +40,7 @@ class AbstractPlayerCache {
      *
      * @param player the player.
      */
-    synchronized void add(Player player) {
+    void add(Player player) {
         CACHE.add(player.getUniqueId());
     }
 
@@ -50,7 +50,7 @@ class AbstractPlayerCache {
      *
      * @param player the player.
      */
-    synchronized void remove(Player player) {
+    void remove(Player player) {
         CACHE.remove(player.getUniqueId());
     }
 
@@ -61,7 +61,7 @@ class AbstractPlayerCache {
      * @param player the player.
      * @return true if the given player is in the cache.
      */
-    synchronized boolean contains(Player player) {
+    boolean contains(Player player) {
         return CACHE.contains(player.getUniqueId());
     }
 
@@ -71,7 +71,7 @@ class AbstractPlayerCache {
      *
      * @param config the configuration.
      */
-    synchronized void save(FileConfiguration config) {
+    void save(FileConfiguration config) {
         config.set(_configKey, new ArrayList<>(CACHE.stream().map(UUID::toString).collect(Collectors.toSet())));
     }
 
@@ -81,11 +81,8 @@ class AbstractPlayerCache {
      *
      * @param config the configuration.
      */
-    synchronized void load(FileConfiguration config) {
-        CACHE.clear();
-        config.getStringList(_configKey).stream()
-                                        .map(UUID::fromString)
-                                        .forEach(CACHE::add);
+    void load(FileConfiguration config) {
+        CACHE = config.getStringList(this._configKey).stream().map(UUID::fromString).collect(Collectors.toCollection(HashSet::new));
     }
 
 }

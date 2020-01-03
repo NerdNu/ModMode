@@ -1,13 +1,6 @@
 package nu.nerd.modmode;
 
-import org.bukkit.Bukkit;
-import org.bukkit.World;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Player;
-
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -16,7 +9,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-// ------------------------------------------------------------------------
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
+
+// ----------------------------------------------------------------------------
 /**
  * Handles and exposes this plugin's configuration.
  */
@@ -37,58 +33,12 @@ class Configuration {
 
     // ------------------------------------------------------------------------
     /**
-     * Returns true if the given groups is configured to be persistent.
-     *
-     * @param group the group.
-     * @return true if the given groups is configured to be persistent.
-     */
-    static boolean isPersistentGroup(String group) {
-        return PERSISTENT_GROUPS.contains(group);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Returns the given player's serialized groups. If none exist, an empty
-     * List will be returned.
-     *
-     * @param player the player.
-     * @return the player's serialized groups; if none, an empty list.
-     */
-    static List<String> getSerializedGroups(Player player) {
-        String playerUuid = player.getUniqueId().toString();
-        return new ArrayList<>(SERIALIZED_GROUPS.getStringList(playerUuid));
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Serializes the given groups for the given player.
-     *
-     * @param player the player.
-     * @param groups the groups to serialize.
-     */
-    static void serializeGroups(Player player, Collection<String> groups) {
-        SERIALIZED_GROUPS.set(player.getUniqueId().toString(), new ArrayList<>(groups));
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Sanitizes the configuration file by removing artifacts from the player's
-     * last ModMode toggle.
-     *
-     * @param player the player.
-     */
-    static void sanitizeSerializedGroups(Player player) {
-        SERIALIZED_GROUPS.set(player.getUniqueId().toString(), null);
-    }
-
-    // ------------------------------------------------------------------------
-    /**
      * Returns true if the given player logged out while vanished.
      *
      * @param player the player.
      * @return true if the given player logged out while vanished.
      */
-    static synchronized boolean loggedOutVanished(Player player) {
+    boolean loggedOutVanished(Player player) {
         return LOGGED_OUT_VANISHED.contains(player.getUniqueId());
     }
 
@@ -99,7 +49,7 @@ class Configuration {
      * @param player the player.
      * @param state the new state.
      */
-    static synchronized void setLoggedOutVanished(Player player, boolean state) {
+    void setLoggedOutVanished(Player player, boolean state) {
         if (state) {
             LOGGED_OUT_VANISHED.add(player.getUniqueId());
         } else {
@@ -116,14 +66,19 @@ class Configuration {
         ModMode.PLUGIN.reloadConfig();
         _config = ModMode.PLUGIN.getConfig();
 
+        VANISH_DELAY = this._config.getInt("vanish-delay-ticks", 1);
+        if (VANISH_DELAY <= 0) {
+            ModMode.log("Configuration error: vanish-delay-ticks must be a positive integer");
+            VANISH_DELAY = 1;
+        }
+
         // clear logged-out-vanished list and repopulate from config
         LOGGED_OUT_VANISHED.clear();
         _config.getStringList("logged-out-vanished").stream()
-                                                    .map(UUID::fromString)
-                                                    .forEach(LOGGED_OUT_VANISHED::add);
+        .map(UUID::fromString)
+        .forEach(LOGGED_OUT_VANISHED::add);
 
-        // reload modmode cache
-        ModMode.getModModeCache().load(_config);
+        MODMODE_CACHE.load(_config);
 
         joinedVanished = new HashMap<>();
         allowFlight = _config.getBoolean("allow.flight", true);
@@ -131,23 +86,9 @@ class Configuration {
         // update collisions for players in ModMode
         NerdBoardHook.setAllowCollisions(_config.getBoolean("allow.collisions", true));
 
-        // load persistent groups
-        PERSISTENT_GROUPS = new HashSet<>(_config.getStringList("permissions.persistent-groups"));
-
-        // load permission worlds
-        PERMISSION_WORLDS = _config.getStringList("permissions.worlds")
-                                   .stream()
-                                   .map(Bukkit::getWorld)
-                                   .collect(Collectors.toCollection(HashSet::new));
-
-        // store reference to the serialized groups configuration section
-        SERIALIZED_GROUPS = _config.getConfigurationSection("serialized-groups");
-        if (SERIALIZED_GROUPS == null) {
-            SERIALIZED_GROUPS = _config.createSection("serialized-groups");
-        }
-
-        MODERATOR_GROUP = _config.getString("permissions.moderator-group", "moderators");
-        MODMODE_GROUP = _config.getString("permissions.modmode-group", "ModMode");
+        MODMODE_TRACK_NAME = _config.getString("permissions.tracks.moderators", "modmode-track");
+        FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME = _config.getString("permissions.tracks.foreign-server-admins",
+                                                                    "foreign-server-admins-modmode-track");
 
         debugPlayerData = _config.getBoolean("debug.playerdata");
 
@@ -163,19 +104,25 @@ class Configuration {
      */
     synchronized void save() {
         _config.set("logged-out-vanished", new ArrayList<>(LOGGED_OUT_VANISHED.stream()
-                                                                              .map(UUID::toString)
-                                                                              .collect(Collectors.toList())));
-        ModMode.getModModeCache().save(_config);
+        .map(UUID::toString)
+        .collect(Collectors.toList())));
+        MODMODE_CACHE.save(_config);
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
-        _config.set("permissions.persistent-groups", new ArrayList<>(PERSISTENT_GROUPS));
-        _config.set("permissions.worlds", PERMISSION_WORLDS.stream()
-                                                           .map(World::getName)
-                                                           .collect(Collectors.toList()));
-        _config.set("permissions.modmode-group", MODMODE_GROUP);
-        _config.set("permissions.moderator-group", MODERATOR_GROUP);
         ModMode.PLUGIN.saveConfig();
     }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Name of the track that Moderators are promoted along to enter ModMode.
+     */
+    String MODMODE_TRACK_NAME;
+
+    /**
+     * Name of the track that foreign server admins are promoted along to enter
+     * ModMode.
+     */
+    String FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME;
 
     /**
      * For Moderators in ModMode, this is persistent storage for their vanish
@@ -191,7 +138,7 @@ class Configuration {
      * This is NOT the set of currently vanished players, which is instead
      * maintained by the VanishNoPacket plugin.
      */
-    private static Set<UUID> LOGGED_OUT_VANISHED = new HashSet<>();
+    Set<UUID> LOGGED_OUT_VANISHED = new HashSet<>();
 
     Map<String, String> joinedVanished;
 
@@ -204,39 +151,6 @@ class Configuration {
      * If true, player data loads and saves are logged to the console.
      */
     boolean debugPlayerData;
-
-    /**
-     * The name of the moderator permission group.
-     */
-    String MODERATOR_GROUP;
-
-    /**
-     * The name of the ModMode permission group.
-     */
-    String MODMODE_GROUP;
-
-    /**
-     * A set of groups which should be retained when entering ModMode.
-     */
-    private static HashSet<String> PERSISTENT_GROUPS = new HashSet<>();
-
-    /**
-     * A set of worlds with relevant permissions, i.e. when a player enters
-     * ModMode, their permissions from these worlds will be serialized and
-     * reapplied after they exit. Usually just "WORLD".
-     */
-    static HashSet<World> PERMISSION_WORLDS = new HashSet<>();
-
-    /**
-     * When a player enters ModMode, their current permission groups will be
-     * serialized into the mapping
-     *
-     *      Player -> {group_1, group_2, ..., group_n},
-     *
-     * of which all values (groups) will be re-applied after said player exits
-     * ModMode.
-     */
-    private static ConfigurationSection SERIALIZED_GROUPS;
 
     /**
      * Commands executed immediately before ModMode is activated.
@@ -258,4 +172,13 @@ class Configuration {
      */
     List<String> afterDeactivationCommands;
 
+    /**
+     * Delay in ticks to wait before setting the player's vanish state.
+     */
+    int VANISH_DELAY;
+
+    /**
+     * A cache of players (UUIDs) currently in ModMode.
+     */
+    AbstractPlayerCache MODMODE_CACHE = new AbstractPlayerCache("modmode");
 }

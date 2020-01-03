@@ -1,6 +1,5 @@
 package nu.nerd.modmode;
 
-import nu.nerd.nerdboard.NerdBoard;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -8,13 +7,15 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
-// ------------------------------------------------------------------------
+import nu.nerd.nerdboard.NerdBoard;
+
+// ----------------------------------------------------------------------------
 /**
  * A class which encapsulates all of this plugin's hooked functionality
  * dependent on the NerdBoard plugin.
  */
 final class NerdBoardHook {
-
+    // ------------------------------------------------------------------------
     /**
      * The NerdBoard instance.
      */
@@ -65,8 +66,8 @@ final class NerdBoardHook {
      *
      * @param name the name of the team.
      * @param color (nullable) the team's color (i.e. player name color).
-     * @param collisions if entity collisions should be enabled for
-     *                        players on this team.
+     * @param collisions if entity collisions should be enabled for players on
+     *        this team.
      * @return a {@link Team} with the given properties.
      */
     private static Team configureTeam(String name, ChatColor color, boolean collisions) {
@@ -121,8 +122,9 @@ final class NerdBoardHook {
     static void reconcilePlayerWithVanishState(Player player) {
         boolean inModMode = ModMode.PLUGIN.isModMode(player);
         boolean isVanished = ModMode.PLUGIN.isVanished(player);
-        Team team = inModMode ? _modModeTeam : (isVanished ? _vanishedTeam
-                                                           : _defaultTeam);
+        Team team = inModMode ? _modModeTeam
+                              : (isVanished ? _vanishedTeam
+                                            : _defaultTeam);
         _nerdBoard.addPlayerToTeam(team, player);
         if (player.getScoreboard() != _scoreboard) {
             player.setScoreboard(_scoreboard);
@@ -130,10 +132,9 @@ final class NerdBoardHook {
     }
 
     /**
-     * Translates a boolean to an {@link org.bukkit.scoreboard.Team.OptionStatus}
-     * with the mapping:
-     *      true -> OptionStatus.ALWAYS
-     *      false -> OptionStatus.NEVER
+     * Translates a boolean to an
+     * {@link org.bukkit.scoreboard.Team.OptionStatus} with the mapping: true ->
+     * OptionStatus.ALWAYS false -> OptionStatus.NEVER
      *
      * @param bool the boolean.
      * @return the translated OptionStatus.
@@ -142,6 +143,7 @@ final class NerdBoardHook {
         return bool ? Team.OptionStatus.ALWAYS : Team.OptionStatus.NEVER;
     }
 
+    // ------------------------------------------------------------------------
     /**
      * Allow collisions between unvanished players. Vanished staff are never
      * collidable.

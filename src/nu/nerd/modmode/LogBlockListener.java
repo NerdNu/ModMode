@@ -1,14 +1,15 @@
 package nu.nerd.modmode;
 
-import de.diddiz.LogBlock.Actor;
-import de.diddiz.LogBlock.events.BlockChangePreLogEvent;
+import java.util.UUID;
+
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
-import java.util.UUID;
+import de.diddiz.LogBlock.Actor;
+import de.diddiz.LogBlock.events.BlockChangePreLogEvent;
 
-// ------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
 /**
  * The LogBlock event-handling class.
  */

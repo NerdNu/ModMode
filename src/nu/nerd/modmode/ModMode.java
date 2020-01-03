@@ -1,11 +1,14 @@
 package nu.nerd.modmode;
 
-import nu.nerd.nerdboard.NerdBoard;
+import java.io.File;
+import java.util.List;
+
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Chunk;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Statistic;
 import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -21,8 +24,7 @@ import org.bukkit.potion.PotionEffect;
 import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 
-import java.io.File;
-import java.util.List;
+import nu.nerd.nerdboard.NerdBoard;
 
 // ------------------------------------------------------------------------
 /**
@@ -39,11 +41,6 @@ public class ModMode extends JavaPlugin {
      * The permissions handler.
      */
     private static Permissions PERMISSIONS;
-
-    /**
-     * A cache of players (UUIDs) currently in ModMode.
-     */
-    static final AbstractPlayerCache MODMODE_CACHE = new AbstractPlayerCache("modmode");
 
     /**
      * The vanish plugin.
@@ -124,10 +121,6 @@ public class ModMode extends JavaPlugin {
         return PERMISSIONS;
     }
 
-    static AbstractPlayerCache getModModeCache() {
-        return MODMODE_CACHE;
-    }
-
     // ------------------------------------------------------------------------
     /**
      * Return true if the player is currently vanished.
@@ -148,7 +141,7 @@ public class ModMode extends JavaPlugin {
      * {@link Configuration#LOGGED_OUT_VANISHED}.
      */
     void setPersistentVanishState(Player player) {
-        Configuration.setLoggedOutVanished(player, vanish.getManager().isVanished(player));
+        CONFIG.setLoggedOutVanished(player, vanish.getManager().isVanished(player));
     }
 
     // ------------------------------------------------------------------------
@@ -158,8 +151,8 @@ public class ModMode extends JavaPlugin {
      * @param player the Player.
      * @return true if the player is currently in ModMode.
      */
-    synchronized boolean isModMode(Player player) {
-        return MODMODE_CACHE.contains(player);
+    boolean isModMode(Player player) {
+        return CONFIG.MODMODE_CACHE.contains(player);
     }
 
     // ------------------------------------------------------------------------
@@ -172,6 +165,13 @@ public class ModMode extends JavaPlugin {
     void setVanish(Player player, boolean vanished) {
         if (vanish.getManager().isVanished(player) != vanished) {
             vanish.getManager().toggleVanish(player);
+
+            // Update the permissions that VanishNoPacket caches to match the
+            // new
+            // permissions of the player. This is highly dependent on this API
+            // method not doing anything more than what it currently does:
+            // to simply remove the cached VanishUser (permissions) object.
+            VanishPerms.userQuit(player);
         }
     }
 
@@ -265,7 +265,7 @@ public class ModMode extends JavaPlugin {
             stateFile.renameTo(backup1);
         } catch (Exception ex) {
             String msg = " raised saving state file backups for " + player.getName()
-                             + " (" + player.getUniqueId().toString() + ").";
+                         + " (" + player.getUniqueId().toString() + ").";
             log(ex.getClass().getName() + msg);
         }
 
@@ -273,17 +273,23 @@ public class ModMode extends JavaPlugin {
         config.set("health", player.getHealth());
         config.set("food", player.getFoodLevel());
         config.set("experience", player.getLevel() + player.getExp());
+        config.set("fireticks", player.getFireTicks());
+        config.set("falldistance", player.getFallDistance());
+        config.set("awaketicks", player.getStatistic(Statistic.TIME_SINCE_REST));
+
         config.set("world", player.getLocation().getWorld().getName());
         config.set("x", player.getLocation().getX());
         config.set("y", player.getLocation().getY());
         config.set("z", player.getLocation().getZ());
         config.set("pitch", player.getLocation().getPitch());
         config.set("yaw", player.getLocation().getYaw());
+
         config.set("helmet", player.getInventory().getHelmet());
         config.set("chestplate", player.getInventory().getChestplate());
         config.set("leggings", player.getInventory().getLeggings());
         config.set("boots", player.getInventory().getBoots());
         config.set("off-hand", player.getInventory().getItemInOffHand());
+
         for (PotionEffect potion : player.getActivePotionEffects()) {
             config.set("potions." + potion.getType().getName(), potion);
         }
@@ -325,6 +331,9 @@ public class ModMode extends JavaPlugin {
             float level = (float) config.getDouble("experience");
             player.setLevel((int) Math.floor(level));
             player.setExp(level - player.getLevel());
+            player.setFireTicks(config.getInt("fireticks"));
+            player.setFallDistance((float) config.getDouble("falldistance"));
+            player.setStatistic(Statistic.TIME_SINCE_REST, config.getInt("awaketicks"));
 
             if (!isModMode) {
                 String world = config.getString("world");
@@ -402,9 +411,9 @@ public class ModMode extends JavaPlugin {
 
         if (!enabled) {
             if (PERMISSIONS.isAdmin(player)) {
-                // When leaving ModMode, Admins return to their persistent vanish
-                // state
-                setVanish(player, Configuration.loggedOutVanished(player));
+                // When leaving ModMode, Admins return to their persistent
+                // vanish state
+                setVanish(player, CONFIG.loggedOutVanished(player));
             } else {
                 // luckperms: demote from modmode back to moderator group
                 PERMISSIONS.demote(player);
@@ -416,7 +425,7 @@ public class ModMode extends JavaPlugin {
             }
 
             // remove from ModMode cache
-            MODMODE_CACHE.remove(player);
+            CONFIG.MODMODE_CACHE.remove(player);
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
         } else {
             if (!player.hasPermission(Permissions.ADMIN)) {
@@ -424,12 +433,13 @@ public class ModMode extends JavaPlugin {
                 // admin perms stay as-is
                 PERMISSIONS.promote(player);
             } else {
-                // Always vanish when entering ModMode. Record the old vanish state for admins only.
+                // Always vanish when entering ModMode. Record the old vanish
+                // state for admins only.
                 setPersistentVanishState(player);
             }
 
             // add to ModMode cache
-            MODMODE_CACHE.add(player);
+            CONFIG.MODMODE_CACHE.add(player);
 
             // brief half-second delay to allow luckperms to catch up
             Bukkit.getScheduler().runTaskLater(this, () -> setVanish(player, true), 10);
@@ -452,8 +462,15 @@ public class ModMode extends JavaPlugin {
         savePlayerData(player, !enabled);
         loadPlayerData(player, enabled);
 
-        // Hopefully stop some minor falls
-        player.setFallDistance(0F);
+        // When entering ModMode, clear damage sources and phantoms.
+        if (enabled) {
+            player.setFireTicks(0);
+            player.setFallDistance(0F);
+
+            // Moderators should not spawn phantoms.
+            // TODO: Not quite right. To be perfect, requires a repeating task.
+            player.setStatistic(Statistic.TIME_SINCE_REST, 0);
+        }
 
         // Chunk error (resend to all clients).
         World w = player.getWorld();
