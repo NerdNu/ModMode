@@ -180,5 +180,5 @@ class Configuration {
     /**
      * A cache of players (UUIDs) currently in ModMode.
      */
-    AbstractPlayerCache MODMODE_CACHE = new AbstractPlayerCache("modmode");
+    PlayerUuidSet MODMODE_CACHE = new PlayerUuidSet("modmode");
 }

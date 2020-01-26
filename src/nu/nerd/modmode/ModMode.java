@@ -99,6 +99,18 @@ public class ModMode extends JavaPlugin {
 
         // instantiate permissions handler
         PERMISSIONS = new Permissions();
+
+        // Repeating task to prevent phantom spawns for players in ModMode.
+        // The time since rest statistic is also cleared when entering ModMode.
+        // This just caters for staff who stay in ModMode for over 80 minutes.
+        final int TEN_MINUTES = 10 * 60 * 20;
+        Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (CONFIG.MODMODE_CACHE.contains(player)) {
+                    player.setStatistic(Statistic.TIME_SINCE_REST, 0);
+                }
+            }
+        }, TEN_MINUTES, TEN_MINUTES);
     }
 
     // ------------------------------------------------------------------------
@@ -468,7 +480,6 @@ public class ModMode extends JavaPlugin {
             player.setFallDistance(0F);
 
             // Moderators should not spawn phantoms.
-            // TODO: Not quite right. To be perfect, requires a repeating task.
             player.setStatistic(Statistic.TIME_SINCE_REST, 0);
         }
 

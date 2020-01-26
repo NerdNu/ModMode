@@ -10,27 +10,17 @@ import org.bukkit.entity.Player;
 
 // ----------------------------------------------------------------------------
 /**
- * Represents an abstract cache of players.
+ * Caches a set of players that are stored as a list of their UUIDs in a YAML
+ * configuration.
  */
-class AbstractPlayerCache {
-
-    /**
-     * The cache of players.
-     */
-    private HashSet<UUID> CACHE = new HashSet<>();
-
-    /**
-     * This cache's YAML key, for (de)serialization.
-     */
-    private final String _configKey;
-
+public class PlayerUuidSet {
     // ------------------------------------------------------------------------
     /**
      * Constructor.
      *
      * @param configKey this cache's YAML key, for (de)serialization.
      */
-    AbstractPlayerCache(String configKey) {
+    public PlayerUuidSet(String configKey) {
         _configKey = configKey;
     }
 
@@ -40,8 +30,8 @@ class AbstractPlayerCache {
      *
      * @param player the player.
      */
-    void add(Player player) {
-        CACHE.add(player.getUniqueId());
+    public void add(Player player) {
+        _uuids.add(player.getUniqueId());
     }
 
     // ------------------------------------------------------------------------
@@ -50,8 +40,8 @@ class AbstractPlayerCache {
      *
      * @param player the player.
      */
-    void remove(Player player) {
-        CACHE.remove(player.getUniqueId());
+    public void remove(Player player) {
+        _uuids.remove(player.getUniqueId());
     }
 
     // ------------------------------------------------------------------------
@@ -61,8 +51,8 @@ class AbstractPlayerCache {
      * @param player the player.
      * @return true if the given player is in the cache.
      */
-    boolean contains(Player player) {
-        return CACHE.contains(player.getUniqueId());
+    public boolean contains(Player player) {
+        return _uuids.contains(player.getUniqueId());
     }
 
     // ------------------------------------------------------------------------
@@ -71,8 +61,8 @@ class AbstractPlayerCache {
      *
      * @param config the configuration.
      */
-    void save(FileConfiguration config) {
-        config.set(_configKey, new ArrayList<>(CACHE.stream().map(UUID::toString).collect(Collectors.toSet())));
+    public void save(FileConfiguration config) {
+        config.set(_configKey, new ArrayList<>(_uuids.stream().map(UUID::toString).collect(Collectors.toSet())));
     }
 
     // ------------------------------------------------------------------------
@@ -81,8 +71,18 @@ class AbstractPlayerCache {
      *
      * @param config the configuration.
      */
-    void load(FileConfiguration config) {
-        CACHE = config.getStringList(this._configKey).stream().map(UUID::fromString).collect(Collectors.toCollection(HashSet::new));
+    public void load(FileConfiguration config) {
+        _uuids = config.getStringList(this._configKey).stream().map(UUID::fromString).collect(Collectors.toCollection(HashSet::new));
     }
 
+    // ------------------------------------------------------------------------
+    /**
+     * The cache of players.
+     */
+    private HashSet<UUID> _uuids = new HashSet<>();
+
+    /**
+     * This cache's YAML key, for (de)serialization.
+     */
+    private final String _configKey;
 }
