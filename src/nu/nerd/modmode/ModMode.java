@@ -19,11 +19,18 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 
+import me.lucko.luckperms.api.LuckPermsApi;
+import me.lucko.luckperms.api.User;
+import me.lucko.luckperms.api.event.EventBus;
+import me.lucko.luckperms.api.event.user.track.UserDemoteEvent;
+import me.lucko.luckperms.api.event.user.track.UserPromoteEvent;
+import me.lucko.luckperms.api.event.user.track.UserTrackEvent;
 import nu.nerd.nerdboard.NerdBoard;
 
 // ------------------------------------------------------------------------
@@ -35,22 +42,22 @@ public class ModMode extends JavaPlugin {
     /**
      * This plugin.
      */
-    static ModMode PLUGIN;
+    public static ModMode PLUGIN;
 
     /**
      * The permissions handler.
      */
-    private static Permissions PERMISSIONS;
+    public static Permissions PERMISSIONS;
+
+    /**
+     * This plugin's configuration.
+     */
+    public static Configuration CONFIG;
 
     /**
      * The vanish plugin.
      */
     private VanishPlugin vanish;
-
-    /**
-     * This plugin's configuration.
-     */
-    static Configuration CONFIG;
 
     // ------------------------------------------------------------------------
     /**
@@ -106,11 +113,20 @@ public class ModMode extends JavaPlugin {
         final int TEN_MINUTES = 10 * 60 * 20;
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
-                if (CONFIG.MODMODE_CACHE.contains(player)) {
+                if (!CONFIG.MODMODE_PENDING.contains(player)
+                    && CONFIG.MODMODE_CACHE.contains(player)) {
                     player.setStatistic(Statistic.TIME_SINCE_REST, 0);
                 }
             }
         }, TEN_MINUTES, TEN_MINUTES);
+
+        RegisteredServiceProvider<LuckPermsApi> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPermsApi.class);
+        if (svcProvider != null) {
+            LuckPermsApi api = svcProvider.getProvider();
+            EventBus eventBus = api.getEventBus();
+            eventBus.subscribe(UserPromoteEvent.class, this::onUserTrackEvent);
+            eventBus.subscribe(UserDemoteEvent.class, this::onUserTrackEvent);
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -121,16 +137,6 @@ public class ModMode extends JavaPlugin {
     public void onDisable() {
         HandlerList.unregisterAll(this);
         CONFIG.save();
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Returns the permissions handler.
-     *
-     * @return the permissions handler.
-     */
-    static Permissions getPermissions() {
-        return PERMISSIONS;
     }
 
     // ------------------------------------------------------------------------
@@ -179,9 +185,8 @@ public class ModMode extends JavaPlugin {
             vanish.getManager().toggleVanish(player);
 
             // Update the permissions that VanishNoPacket caches to match the
-            // new
-            // permissions of the player. This is highly dependent on this API
-            // method not doing anything more than what it currently does:
+            // new permissions of the player. This is highly dependent on this
+            // API method not doing anything more than what it currently does:
             // to simply remove the cached VanishUser (permissions) object.
             VanishPerms.userQuit(player);
         }
@@ -409,66 +414,21 @@ public class ModMode extends JavaPlugin {
 
     // ------------------------------------------------------------------------
     /**
-     * Sets the given player's ModMode status to the given state.
-     *
-     * @param player the player.
-     * @param enabled the state.
+     * Handle the part of the process of changing the player's ModMode state
+     * that precedes permission changes.
+     * 
+     * @param player the affected player.
+     * @param enabled true if the player is entering the ModMode state. If true,
+     *        the player is enabling ModMode; if false, the player is disabling
+     *        ModMode.
      */
-    private void toggleModMode(final Player player, boolean enabled) {
+    private void startToggleModMode(Player player, boolean enabled) {
+        // log("startToggleModMode()");
         if (enabled) {
             runCommands(player, CONFIG.beforeActivationCommands);
         } else {
             runCommands(player, CONFIG.beforeDeactivationCommands);
         }
-
-        if (!enabled) {
-            if (PERMISSIONS.isAdmin(player)) {
-                // When leaving ModMode, Admins return to their persistent
-                // vanish state
-                setVanish(player, CONFIG.loggedOutVanished(player));
-            } else {
-                // luckperms: demote from modmode back to moderator group
-                PERMISSIONS.demote(player);
-                // always reappear
-                setVanish(player, false);
-                if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
-                    getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
-                }
-            }
-
-            // remove from ModMode cache
-            CONFIG.MODMODE_CACHE.remove(player);
-            player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
-        } else {
-            if (!player.hasPermission(Permissions.ADMIN)) {
-                // promote moderators along modmode track to give modmod perms;
-                // admin perms stay as-is
-                PERMISSIONS.promote(player);
-            } else {
-                // Always vanish when entering ModMode. Record the old vanish
-                // state for admins only.
-                setPersistentVanishState(player);
-            }
-
-            // add to ModMode cache
-            CONFIG.MODMODE_CACHE.add(player);
-
-            // brief half-second delay to allow luckperms to catch up
-            Bukkit.getScheduler().runTaskLater(this, () -> setVanish(player, true), 10);
-            player.sendMessage(ChatColor.RED + "You are now in ModMode!");
-        }
-
-        // Update the permissions that VanishNoPacket caches to match the new
-        // permissions of the player. This is highly dependent on this API
-        // method not doing anything more than what it currently does:
-        // to simply remove the cached VanishUser (permissions) object.
-        VanishPerms.userQuit(player);
-
-        // Update the nametage for the player
-        NerdBoardHook.reconcilePlayerWithVanishState(player);
-
-        // Update who sees whom AFTER permissions and vanish state changes.
-        updateAllPlayersSeeing();
 
         // Save player data for the old ModMode state and load for the new.
         savePlayerData(player, !enabled);
@@ -483,18 +443,181 @@ public class ModMode extends JavaPlugin {
             player.setStatistic(Statistic.TIME_SINCE_REST, 0);
         }
 
+        if (PERMISSIONS.isAdmin(player)) {
+            // For Admins only:
+            if (enabled) {
+                // When entering ModMode, record old vanish state, then vanish.
+                setPersistentVanishState(player);
+                setVanish(player, true);
+            } else {
+                // When leaving ModMode, return to persistent vanish state.
+                setVanish(player, CONFIG.loggedOutVanished(player));
+            }
+        } else {
+            // For non-Admins:
+            setVanish(player, enabled);
+        }
+
+        // Note: since the permissions change is async, possibly spanning
+        // multiple ticks, and it's not immediately obvious how event handlers
+        // should handle this limbo state. If we run into problems, we can
+        // consult CONFIG.MODMODE_PENDING, which will not contain the player
+        // once their permissions are finalised.
+        //
+        // For now, we will record the player as being in ModMode so there
+        // are no surprises in the config. But it might be more reliable to
+        // delay the state change until finishToggleModMode(). Alternatively,
+        // perhaps we could change {@link #isModMode()} to factor in the
+        // CONFIG.MODMODE_PENDING state as well.
+        if (enabled) {
+            CONFIG.MODMODE_CACHE.add(player);
+        } else {
+            CONFIG.MODMODE_CACHE.remove(player);
+        }
+
+        // Signify that there is a pending permission change for the player.
+        // This prevents the repeating task from clearing the time since rest
+        // statistic while the permissions plugin is thinking (over several
+        // ticks).
+        CONFIG.MODMODE_PENDING.add(player);
+        CONFIG.save();
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Handle the part of the process of changing the player's ModMode state
+     * that follows permission changes.
+     * 
+     * @param player the affected player.
+     * @param enabled true if the player is entering the ModMode state. If true,
+     *        the player is enabling ModMode; if false, the player is disabling
+     *        ModMode.
+     */
+    void finishToggleModMode(Player player, boolean enabled) {
+        // log("finishToggleModMode()");
+        // Update the permissions that VanishNoPacket caches to match the new
+        // permissions of the player. This is highly dependent on this API
+        // method not doing anything more than what it currently does:
+        // to simply remove the cached VanishUser (permissions) object.
+        VanishPerms.userQuit(player);
+
+        // Update the nametag for the player.
+        NerdBoardHook.reconcilePlayerWithVanishState(player);
+
+        // Update who sees whom AFTER permissions and vanish state changes.
+        updateAllPlayersSeeing();
+
         // Chunk error (resend to all clients).
         World w = player.getWorld();
         Chunk c = w.getChunkAt(player.getLocation());
         w.refreshChunk(c.getX(), c.getZ());
 
         restoreFlight(player, enabled);
-        CONFIG.save();
 
         if (enabled) {
             runCommands(player, CONFIG.afterActivationCommands);
         } else {
             runCommands(player, CONFIG.afterDeactivationCommands);
+        }
+
+        // All done bar the shouting.
+        // We can now re-enable normal operation of the repeating task.
+        CONFIG.MODMODE_PENDING.remove(player);
+        CONFIG.save();
+
+        // Send status messages last, so that client mods that scrape chat
+        // trigger when everything has been done.
+        if (enabled) {
+            player.sendMessage(ChatColor.RED + "You are now in ModMode!");
+        } else {
+            if (!PERMISSIONS.isAdmin(player)) {
+                if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
+                    getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
+                }
+            }
+            player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Set the given player's ModMode state to enabled (true) or disabled
+     * (false).
+     * 
+     * The transition into ModMode comprises three steps:
+     * <ol>
+     * <li>Actions appropriate for the player's permissions prior to changing
+     * state and actions that are not affected by permissions are performed
+     * first.</li>
+     * <li>Asynchronous promotion or demotion of the player along a track to
+     * enter or leave ModMode. Completion of this permission processing
+     * eventually triggers an asynchronous event that is used to schedule a
+     * synchronous task to perform the next step.</li>
+     * <li>Actions that depend on the player's permissions to be in their final
+     * (promoted or demoted state).</li>
+     * </ol>
+     * 
+     * There is a slight wrinkle in that full admins inherit the ModMode group
+     * and therefore don't get promoted or demoted. Thus, there are no promotion
+     * or demotion events. Instead, we simply run the final step listed above
+     * immediately.
+     * 
+     * @param player the affected player.
+     * @param enabled true if the player is entering the ModMode state. If true,
+     *        the player is enabling ModMode; if false, the player is disabling
+     *        ModMode.
+     */
+    private void toggleModMode(final Player player, boolean enabled) {
+        // log("toggleModMode()");
+        startToggleModMode(player, enabled);
+
+        // Full Admins already possess the ModMode group and therefore don't
+        // get promoted or demoted, so steps 2 and 3 are synchronous.
+        if (PERMISSIONS.isAdmin(player)) {
+            finishToggleModMode(player, enabled);
+        } else {
+            // For non-Admins, call finishToggleModMode() in onUserPromote() or
+            // onUserDemote(), as appropriate.
+            if (enabled) {
+                // Entering ModMode:
+                // Promote moderators and foreign server admins to ModMode.
+                PERMISSIONS.promote(player);
+            } else {
+                // Leaving ModMode:
+                // Demote from ModMode back to moderator or foreign server
+                // admin group.
+                PERMISSIONS.demote(player);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * When a player is promoted up or demoted down a track (async), schedule a
+     * main-thread- synchronous task to complete the ModMode transition.
+     * 
+     * This method is not a Bukkit event handler; it uses LuckPerms' EventBus.
+     * 
+     * @param event the UserPromoteEvent or UserDemoteEvent.
+     */
+    protected void onUserTrackEvent(UserTrackEvent event) {
+        // log("onUserTrackEvent()");
+        User user = event.getUser();
+        // String action = event.getAction() == TrackAction.PROMOTION ?
+        // "Promoted " : "Demoted ";
+        // Track track = event.getTrack();
+        // Optional<String> fromGroup = event.getGroupFrom();
+        // Optional<String> toGroup = event.getGroupTo();
+
+        // log(action + user.getName() +
+        // " along " + track.getName() +
+        // " from " + fromGroup.orElse("?") + " to " + toGroup.orElse("?"));
+
+        Player player = Bukkit.getPlayer(user.getUuid());
+        if (player != null) {
+            Bukkit.getScheduler().scheduleSyncDelayedTask(this, () -> {
+                finishToggleModMode(player, isModMode(player));
+            }, 0);
         }
     }
 
@@ -562,6 +685,11 @@ public class ModMode extends JavaPlugin {
         if (args.length == 0) {
             if (isInGame(sender)) {
                 Player player = (Player) sender;
+                if (CONFIG.MODMODE_PENDING.contains(player)) {
+                    sender.sendMessage(ChatColor.RED + "You are still changing mode. Wait until your previous /modmode command completes.");
+                    return;
+                }
+
                 toggleModMode(player, !isModMode(player));
             }
         } else if (args.length == 1 && (args[0].equalsIgnoreCase("save") || args[0].equalsIgnoreCase("reload"))) {

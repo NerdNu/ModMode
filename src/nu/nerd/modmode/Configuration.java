@@ -79,6 +79,7 @@ class Configuration {
         .forEach(LOGGED_OUT_VANISHED::add);
 
         MODMODE_CACHE.load(_config);
+        MODMODE_PENDING.load(_config);
 
         joinedVanished = new HashMap<>();
         allowFlight = _config.getBoolean("allow.flight", true);
@@ -107,6 +108,7 @@ class Configuration {
         .map(UUID::toString)
         .collect(Collectors.toList())));
         MODMODE_CACHE.save(_config);
+        MODMODE_PENDING.save(_config);
         _config.set("allow.flight", allowFlight);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
         ModMode.PLUGIN.saveConfig();
@@ -181,4 +183,10 @@ class Configuration {
      * A cache of players (UUIDs) currently in ModMode.
      */
     PlayerUuidSet MODMODE_CACHE = new PlayerUuidSet("modmode");
+
+    /**
+     * A cache of players (UUIDs) currently in ModMode.
+     */
+    PlayerUuidSet MODMODE_PENDING = new PlayerUuidSet("modmode-pending");
+
 }

@@ -19,20 +19,20 @@ public class Permissions {
     Permissions() {
         RegisteredServiceProvider<LuckPermsApi> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPermsApi.class);
         if (svcProvider != null) {
-            API = svcProvider.getProvider();
-            MODMODE_TRACK = getTrack(ModMode.CONFIG.MODMODE_TRACK_NAME);
-            FOREIGN_SERVER_ADMINS_TRACK = getTrack(ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME);
+            _api = svcProvider.getProvider();
+            _modmodeTrack = getTrack(ModMode.CONFIG.MODMODE_TRACK_NAME);
+            _foreignServerAdminsTrack = getTrack(ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME);
         } else {
-            API = null;
+            _api = null;
             ModMode.log("LuckPerms could not be found. Is it disabled or missing?");
             Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
         }
-        if (MODMODE_TRACK == null) {
-            ModMode.log("Track modmode-track could not be found.");
+        if (_modmodeTrack == null) {
+            ModMode.log("Moderator promotion track could not be found.");
             Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
         }
-        if (FOREIGN_SERVER_ADMINS_TRACK == null) {
-            ModMode.log("Track modmode-track could not be found.");
+        if (_foreignServerAdminsTrack == null) {
+            ModMode.log("Foreign server admin promotion track could not be found.");
             Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
         }
     }
@@ -59,10 +59,10 @@ public class Permissions {
      * @return the Track, or null if it does not exist.
      */
     Track getTrack(String name) {
-        if (API.isTrackLoaded(name)) {
-            return API.getTrack(name);
+        if (_api.isTrackLoaded(name)) {
+            return _api.getTrack(name);
         } else {
-            return API.getTrackManager().loadTrack(name).join().orElse(null);
+            return _api.getTrackManager().loadTrack(name).join().orElse(null);
         }
     }
 
@@ -78,9 +78,9 @@ public class Permissions {
      */
     private Track getAppropriateTrack(Player player) {
         if (player.hasPermission("group.foreignserveradmins")) {
-            return FOREIGN_SERVER_ADMINS_TRACK;
+            return _foreignServerAdminsTrack;
         } else {
-            return MODMODE_TRACK;
+            return _modmodeTrack;
         }
     }
 
@@ -139,16 +139,16 @@ public class Permissions {
     /**
      * LuckPerms API instance.
      */
-    private final LuckPermsApi API;
+    private LuckPermsApi _api;
 
     /**
      * Moderator -> ModMode Track instance.
      */
-    private static Track MODMODE_TRACK;
+    private Track _modmodeTrack;
 
     /**
      * Foreign Server Admin -> ModMode Track instance.
      */
-    private static Track FOREIGN_SERVER_ADMINS_TRACK;
+    private Track _foreignServerAdminsTrack;
 
 }

@@ -45,7 +45,7 @@ public class ModModeListener implements Listener {
         if (player.hasPermission(Permissions.TOGGLE)) {
             boolean inModMode = ModMode.PLUGIN.isModMode(player);
             boolean vanished;
-            if (ModMode.getPermissions().isAdmin(player)) {
+            if (ModMode.PERMISSIONS.isAdmin(player)) {
                 // Admins log in vanished if they logged out vanished, or if
                 // they logged out in ModMode (vanished or not).
                 vanished = CONFIG.loggedOutVanished(player) || inModMode;
@@ -62,6 +62,12 @@ public class ModModeListener implements Listener {
             }
 
             ModMode.PLUGIN.restoreFlight(player, inModMode);
+
+            // Player logged out while permissions were updating. Finish the
+            // ModMode transition.
+            if (CONFIG.MODMODE_PENDING.contains(player)) {
+                ModMode.PLUGIN.finishToggleModMode(player, inModMode);
+            }
         }
 
         NerdBoardHook.reconcilePlayerWithVanishState(player);
@@ -77,7 +83,6 @@ public class ModModeListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-
         CONFIG.joinedVanished.remove(player.getUniqueId().toString());
 
         // Suppress quit messages when vanished.
@@ -87,7 +92,7 @@ public class ModModeListener implements Listener {
 
         // For staff who can use ModMode, store the vanish state of Moderators
         // in ModMode and Admins who are not in ModMode between logins.
-        if (player.hasPermission(Permissions.TOGGLE) && ModMode.PLUGIN.isModMode(player) != ModMode.getPermissions().isAdmin(player)) {
+        if (player.hasPermission(Permissions.TOGGLE) && ModMode.PLUGIN.isModMode(player) != ModMode.PERMISSIONS.isAdmin(player)) {
             ModMode.PLUGIN.setPersistentVanishState(player);
             CONFIG.save();
         }
