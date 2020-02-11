@@ -17,11 +17,86 @@ import org.bukkit.entity.Player;
  * Handles and exposes this plugin's configuration.
  */
 class Configuration {
+    // ------------------------------------------------------------------------
+    /**
+     * Name of the track that Moderators are promoted along to enter ModMode.
+     */
+    public String MODMODE_TRACK_NAME;
 
     /**
-     * The configuration.
+     * Name of the track that foreign server admins are promoted along to enter
+     * ModMode.
      */
-    private FileConfiguration _config;
+    public String FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME;
+
+    /**
+     * For Moderators in ModMode, this is persistent storage for their vanish
+     * state when they log out. Moderators out of ModMode are assumed to always
+     * be visible.
+     *
+     * For Admins who can vanish without transitioning into ModMode, this
+     * variable stores their vanish state between logins only when not in
+     * ModMode. If they log out in ModMode, they are re-vanished automatically
+     * when they log in. When they leave ModMode, their vanish state is set
+     * according to membership in this set.
+     *
+     * This is NOT the set of currently vanished players, which is instead
+     * maintained by the VanishNoPacket plugin.
+     */
+    public Set<UUID> LOGGED_OUT_VANISHED = new HashSet<>();
+
+    /**
+     * This is a map of player UUID to login announcement message for those
+     * players that joined vanished. It is used to replay that login message
+     * when the player unvanishes on leaving ModMode if that message was
+     * initially suppressed when they logged in vanished.
+     */
+    public Map<UUID, String> SUPPRESSED_LOGIN_MESSAGE = new HashMap<>();
+
+    /**
+     * If true, players in ModMode will be able to fly.
+     */
+    public boolean ALLOW_FLIGHT;
+
+    /**
+     * If true, player data loads and saves are logged to the console.
+     */
+    public boolean DEBUG_PLAYER_DATA;
+
+    /**
+     * Commands executed immediately before ModMode is activated.
+     */
+    public List<String> BEFORE_ACTIVATION_COMMANDS;
+
+    /**
+     * Commands executed immediately after ModMode is activated.
+     */
+    public List<String> AFTER_ACTIVATION_COMMANDS;
+
+    /**
+     * Commands executed immediately before ModMode is deactivated.
+     */
+    public List<String> BEFORE_DEACTIVATION_COMMANDS;
+
+    /**
+     * Commands executed immediately after ModMode is deactivated.
+     */
+    public List<String> AFTER_DEACTIVATION_COMMANDS;
+
+    /**
+     * Delay in ticks to wait before setting the player's vanish state.
+     */
+    public int VANISH_DELAY;
+
+    /**
+     * A cache of players (UUIDs) currently in ModMode.
+     */
+    public PlayerUuidSet MODMODE_CACHE = new PlayerUuidSet("modmode");
+
+    /**
+     * A cache of players (UUIDs) currently in ModMode.
+     */
+    public PlayerUuidSet MODMODE_PENDING = new PlayerUuidSet("modmode-pending");
 
     // ------------------------------------------------------------------------
     /**
@@ -81,8 +156,8 @@ class Configuration {
         MODMODE_CACHE.load(_config);
         MODMODE_PENDING.load(_config);
 
-        joinedVanished = new HashMap<>();
-        allowFlight = _config.getBoolean("allow.flight", true);
+        SUPPRESSED_LOGIN_MESSAGE.clear();
+        ALLOW_FLIGHT = _config.getBoolean("allow.flight", true);
 
         // update collisions for players in ModMode
         NerdBoardHook.setAllowCollisions(_config.getBoolean("allow.collisions", true));
@@ -91,12 +166,12 @@ class Configuration {
         FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME = _config.getString("permissions.tracks.foreign-server-admins",
                                                                     "foreign-server-admins-modmode-track");
 
-        debugPlayerData = _config.getBoolean("debug.playerdata");
+        DEBUG_PLAYER_DATA = _config.getBoolean("debug.playerdata");
 
-        beforeActivationCommands = _config.getStringList("commands.activate.before");
-        afterActivationCommands = _config.getStringList("commands.activate.after");
-        beforeDeactivationCommands = _config.getStringList("commands.deactivate.before");
-        afterDeactivationCommands = _config.getStringList("commands.deactivate.after");
+        BEFORE_ACTIVATION_COMMANDS = _config.getStringList("commands.activate.before");
+        AFTER_ACTIVATION_COMMANDS = _config.getStringList("commands.activate.after");
+        BEFORE_DEACTIVATION_COMMANDS = _config.getStringList("commands.deactivate.before");
+        AFTER_DEACTIVATION_COMMANDS = _config.getStringList("commands.deactivate.after");
     }
 
     // ------------------------------------------------------------------------
@@ -109,84 +184,15 @@ class Configuration {
         .collect(Collectors.toList())));
         MODMODE_CACHE.save(_config);
         MODMODE_PENDING.save(_config);
-        _config.set("allow.flight", allowFlight);
+        _config.set("allow.flight", ALLOW_FLIGHT);
         _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
         ModMode.PLUGIN.saveConfig();
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Name of the track that Moderators are promoted along to enter ModMode.
+     * The configuration.
      */
-    String MODMODE_TRACK_NAME;
-
-    /**
-     * Name of the track that foreign server admins are promoted along to enter
-     * ModMode.
-     */
-    String FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME;
-
-    /**
-     * For Moderators in ModMode, this is persistent storage for their vanish
-     * state when they log out. Moderators out of ModMode are assumed to always
-     * be visible.
-     *
-     * For Admins who can vanish without transitioning into ModMode, this
-     * variable stores their vanish state between logins only when not in
-     * ModMode. If they log out in ModMode, they are re-vanished automatically
-     * when they log in. When they leave ModMode, their vanish state is set
-     * according to membership in this set.
-     *
-     * This is NOT the set of currently vanished players, which is instead
-     * maintained by the VanishNoPacket plugin.
-     */
-    Set<UUID> LOGGED_OUT_VANISHED = new HashSet<>();
-
-    Map<String, String> joinedVanished;
-
-    /**
-     * If true, players in ModMode will be able to fly.
-     */
-    boolean allowFlight;
-
-    /**
-     * If true, player data loads and saves are logged to the console.
-     */
-    boolean debugPlayerData;
-
-    /**
-     * Commands executed immediately before ModMode is activated.
-     */
-    List<String> beforeActivationCommands;
-
-    /**
-     * Commands executed immediately after ModMode is activated.
-     */
-    List<String> afterActivationCommands;
-
-    /**
-     * Commands executed immediately before ModMode is deactivated.
-     */
-    List<String> beforeDeactivationCommands;
-
-    /**
-     * Commands executed immediately after ModMode is deactivated.
-     */
-    List<String> afterDeactivationCommands;
-
-    /**
-     * Delay in ticks to wait before setting the player's vanish state.
-     */
-    int VANISH_DELAY;
-
-    /**
-     * A cache of players (UUIDs) currently in ModMode.
-     */
-    PlayerUuidSet MODMODE_CACHE = new PlayerUuidSet("modmode");
-
-    /**
-     * A cache of players (UUIDs) currently in ModMode.
-     */
-    PlayerUuidSet MODMODE_PENDING = new PlayerUuidSet("modmode-pending");
+    private FileConfiguration _config;
 
 }

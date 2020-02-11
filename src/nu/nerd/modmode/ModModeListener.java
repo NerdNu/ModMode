@@ -57,7 +57,7 @@ public class ModModeListener implements Listener {
 
             if (vanished) {
                 ModMode.PLUGIN.setVanish(player, true);
-                CONFIG.joinedVanished.put(player.getUniqueId().toString(), event.getJoinMessage());
+                CONFIG.SUPPRESSED_LOGIN_MESSAGE.put(player.getUniqueId(), event.getJoinMessage());
                 event.setJoinMessage(null);
             }
 
@@ -83,7 +83,7 @@ public class ModModeListener implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        CONFIG.joinedVanished.remove(player.getUniqueId().toString());
+        CONFIG.SUPPRESSED_LOGIN_MESSAGE.remove(player.getUniqueId());
 
         // Suppress quit messages when vanished.
         if (ModMode.PLUGIN.isVanished(player)) {
@@ -193,7 +193,7 @@ public class ModModeListener implements Listener {
     public void onPlayerChangeWorld(PlayerChangedWorldEvent event) {
         Player player = event.getPlayer();
         if (player.getGameMode() != GameMode.CREATIVE) {
-            if (CONFIG.allowFlight) {
+            if (CONFIG.ALLOW_FLIGHT) {
                 boolean flightState = ModMode.PLUGIN.isModMode(player);
                 player.setAllowFlight(flightState);
             }

@@ -270,7 +270,7 @@ public class ModMode extends JavaPlugin {
      */
     private void savePlayerData(Player player, boolean isModMode) {
         File stateFile = getStateFile(player, isModMode);
-        if (CONFIG.debugPlayerData) {
+        if (CONFIG.DEBUG_PLAYER_DATA) {
             log("savePlayerData(): " + stateFile);
         }
 
@@ -336,7 +336,7 @@ public class ModMode extends JavaPlugin {
      */
     private void loadPlayerData(Player player, boolean isModMode) {
         File stateFile = getStateFile(player, isModMode);
-        if (CONFIG.debugPlayerData) {
+        if (CONFIG.DEBUG_PLAYER_DATA) {
             log("loadPlayerData(): " + stateFile);
         }
 
@@ -425,9 +425,9 @@ public class ModMode extends JavaPlugin {
     private void startToggleModMode(Player player, boolean enabled) {
         // log("startToggleModMode()");
         if (enabled) {
-            runCommands(player, CONFIG.beforeActivationCommands);
+            runCommands(player, CONFIG.BEFORE_ACTIVATION_COMMANDS);
         } else {
-            runCommands(player, CONFIG.beforeDeactivationCommands);
+            runCommands(player, CONFIG.BEFORE_DEACTIVATION_COMMANDS);
         }
 
         // Save player data for the old ModMode state and load for the new.
@@ -515,9 +515,9 @@ public class ModMode extends JavaPlugin {
         restoreFlight(player, enabled);
 
         if (enabled) {
-            runCommands(player, CONFIG.afterActivationCommands);
+            runCommands(player, CONFIG.AFTER_ACTIVATION_COMMANDS);
         } else {
-            runCommands(player, CONFIG.afterDeactivationCommands);
+            runCommands(player, CONFIG.AFTER_DEACTIVATION_COMMANDS);
         }
 
         // All done bar the shouting.
@@ -531,8 +531,8 @@ public class ModMode extends JavaPlugin {
             player.sendMessage(ChatColor.RED + "You are now in ModMode!");
         } else {
             if (!PERMISSIONS.isAdmin(player)) {
-                if (CONFIG.joinedVanished.containsKey(player.getUniqueId().toString())) {
-                    getServer().broadcastMessage(CONFIG.joinedVanished.get(player.getUniqueId().toString()));
+                if (CONFIG.SUPPRESSED_LOGIN_MESSAGE.containsKey(player.getUniqueId())) {
+                    getServer().broadcastMessage(CONFIG.SUPPRESSED_LOGIN_MESSAGE.get(player.getUniqueId()));
                 }
             }
             player.sendMessage(ChatColor.RED + "You are no longer in ModMode!");
@@ -629,7 +629,7 @@ public class ModMode extends JavaPlugin {
      * @param isInModMode true if the player is in ModMode.
      */
     void restoreFlight(Player player, boolean isInModMode) {
-        player.setAllowFlight((isInModMode && CONFIG.allowFlight) || player.getGameMode() == GameMode.CREATIVE);
+        player.setAllowFlight((isInModMode && CONFIG.ALLOW_FLIGHT) || player.getGameMode() == GameMode.CREATIVE);
     }
 
     // ------------------------------------------------------------------------
