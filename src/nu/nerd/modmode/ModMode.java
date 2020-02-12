@@ -25,12 +25,12 @@ import org.bukkit.potion.PotionEffect;
 import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 
-import me.lucko.luckperms.api.LuckPermsApi;
-import me.lucko.luckperms.api.User;
-import me.lucko.luckperms.api.event.EventBus;
-import me.lucko.luckperms.api.event.user.track.UserDemoteEvent;
-import me.lucko.luckperms.api.event.user.track.UserPromoteEvent;
-import me.lucko.luckperms.api.event.user.track.UserTrackEvent;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.event.EventBus;
+import net.luckperms.api.event.user.track.UserDemoteEvent;
+import net.luckperms.api.event.user.track.UserPromoteEvent;
+import net.luckperms.api.event.user.track.UserTrackEvent;
+import net.luckperms.api.model.user.User;
 import nu.nerd.nerdboard.NerdBoard;
 
 // ------------------------------------------------------------------------
@@ -120,9 +120,9 @@ public class ModMode extends JavaPlugin {
             }
         }, TEN_MINUTES, TEN_MINUTES);
 
-        RegisteredServiceProvider<LuckPermsApi> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPermsApi.class);
+        RegisteredServiceProvider<LuckPerms> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPerms.class);
         if (svcProvider != null) {
-            LuckPermsApi api = svcProvider.getProvider();
+            LuckPerms api = svcProvider.getProvider();
             EventBus eventBus = api.getEventBus();
             eventBus.subscribe(UserPromoteEvent.class, this::onUserTrackEvent);
             eventBus.subscribe(UserDemoteEvent.class, this::onUserTrackEvent);
@@ -613,7 +613,7 @@ public class ModMode extends JavaPlugin {
         // " along " + track.getName() +
         // " from " + fromGroup.orElse("?") + " to " + toGroup.orElse("?"));
 
-        Player player = Bukkit.getPlayer(user.getUuid());
+        Player player = Bukkit.getPlayer(user.getUniqueId());
         if (player != null) {
             Bukkit.getScheduler().scheduleSyncDelayedTask(this, () -> {
                 finishToggleModMode(player, isModMode(player));

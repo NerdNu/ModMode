@@ -4,8 +4,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
-import me.lucko.luckperms.api.LuckPermsApi;
-import me.lucko.luckperms.api.Track;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.track.Track;
 
 // ----------------------------------------------------------------------------
 /**
@@ -17,22 +17,15 @@ public class Permissions {
      * Constructor.
      */
     Permissions() {
-        RegisteredServiceProvider<LuckPermsApi> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPermsApi.class);
+        RegisteredServiceProvider<LuckPerms> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPerms.class);
         if (svcProvider != null) {
             _api = svcProvider.getProvider();
-            _modmodeTrack = getTrack(ModMode.CONFIG.MODMODE_TRACK_NAME);
-            _foreignServerAdminsTrack = getTrack(ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME);
+            // Get the ball rolling on async track loading.
+            getTrack(ModMode.CONFIG.MODMODE_TRACK_NAME);
+            getTrack(ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME);
         } else {
             _api = null;
             ModMode.log("LuckPerms could not be found. Is it disabled or missing?");
-            Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
-        }
-        if (_modmodeTrack == null) {
-            ModMode.log("Moderator promotion track could not be found.");
-            Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
-        }
-        if (_foreignServerAdminsTrack == null) {
-            ModMode.log("Foreign server admin promotion track could not be found.");
             Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
         }
     }
@@ -59,8 +52,8 @@ public class Permissions {
      * @return the Track, or null if it does not exist.
      */
     Track getTrack(String name) {
-        if (_api.isTrackLoaded(name)) {
-            return _api.getTrack(name);
+        if (_api.getTrackManager().isLoaded(name)) {
+            return _api.getTrackManager().getTrack(name);
         } else {
             return _api.getTrackManager().loadTrack(name).join().orElse(null);
         }
@@ -77,11 +70,13 @@ public class Permissions {
      *         admin.
      */
     private Track getAppropriateTrack(Player player) {
-        if (player.hasPermission("group.foreignserveradmins")) {
-            return _foreignServerAdminsTrack;
-        } else {
-            return _modmodeTrack;
+        String trackName = (player.hasPermission("group.foreignserveradmins")) ? ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME
+                                                                               : ModMode.CONFIG.MODMODE_TRACK_NAME;
+        Track track = getTrack(trackName);
+        if (track == null) {
+            ModMode.PLUGIN.getLogger().severe("Track \"" + trackName + "\" could not be loaded!");
         }
+        return track;
     }
 
     // ------------------------------------------------------------------------
@@ -139,16 +134,6 @@ public class Permissions {
     /**
      * LuckPerms API instance.
      */
-    private LuckPermsApi _api;
-
-    /**
-     * Moderator -> ModMode Track instance.
-     */
-    private Track _modmodeTrack;
-
-    /**
-     * Foreign Server Admin -> ModMode Track instance.
-     */
-    private Track _foreignServerAdminsTrack;
+    private LuckPerms _api;
 
 }
