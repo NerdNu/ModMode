@@ -10,6 +10,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Statistic;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -177,7 +178,7 @@ public class ModMode extends JavaPlugin {
     /**
      * Set the vanish state of the player.
      *
-     * @param player the Player.
+     * @param player   the Player.
      * @param vanished true if he should be vanished.
      */
     void setVanish(Player player, boolean vanished) {
@@ -249,7 +250,7 @@ public class ModMode extends JavaPlugin {
     /**
      * Return the File used to store the player's normal or ModMode state.
      *
-     * @param player the player.
+     * @param player    the player.
      * @param isModMode true if the data is for the ModMode state.
      * @return the File used to store the player's normal or ModMode state.
      */
@@ -265,7 +266,7 @@ public class ModMode extends JavaPlugin {
     /**
      * Save the player's data to a YAML configuration file.
      *
-     * @param player the player.
+     * @param player    the player.
      * @param isModMode true if the saved data is for the ModMode inventory.
      */
     private void savePlayerData(Player player, boolean isModMode) {
@@ -331,7 +332,7 @@ public class ModMode extends JavaPlugin {
     /**
      * Load the player's data from a YAML configuration file.
      *
-     * @param player the player.
+     * @param player    the player.
      * @param isModMode true if the loaded data is for the ModMode inventory.
      */
     private void loadPlayerData(Player player, boolean isModMode) {
@@ -343,7 +344,8 @@ public class ModMode extends JavaPlugin {
         YamlConfiguration config = new YamlConfiguration();
         try {
             config.load(stateFile);
-            player.setHealth(config.getDouble("health"));
+            final double MAX_HEALTH = player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getValue();
+            player.setHealth(Math.min(MAX_HEALTH, config.getDouble("health")));
             player.setFoodLevel(config.getInt("food"));
             float level = (float) config.getDouble("experience");
             player.setLevel((int) Math.floor(level));
@@ -408,7 +410,7 @@ public class ModMode extends JavaPlugin {
                 }
             }
         } catch (Exception ex) {
-            log("Failed to load player data for " + player.getName() + "(" + player.getUniqueId().toString() + ")");
+            log("Failed to load player data for " + player.getName() + "(" + player.getUniqueId().toString() + "): " + ex.getMessage());
         }
     }
 
@@ -416,11 +418,11 @@ public class ModMode extends JavaPlugin {
     /**
      * Handle the part of the process of changing the player's ModMode state
      * that precedes permission changes.
-     * 
-     * @param player the affected player.
+     *
+     * @param player  the affected player.
      * @param enabled true if the player is entering the ModMode state. If true,
-     *        the player is enabling ModMode; if false, the player is disabling
-     *        ModMode.
+     *                the player is enabling ModMode; if false, the player is
+     *                disabling ModMode.
      */
     private void startToggleModMode(Player player, boolean enabled) {
         // log("startToggleModMode()");
@@ -487,11 +489,11 @@ public class ModMode extends JavaPlugin {
     /**
      * Handle the part of the process of changing the player's ModMode state
      * that follows permission changes.
-     * 
-     * @param player the affected player.
+     *
+     * @param player  the affected player.
      * @param enabled true if the player is entering the ModMode state. If true,
-     *        the player is enabling ModMode; if false, the player is disabling
-     *        ModMode.
+     *                the player is enabling ModMode; if false, the player is
+     *                disabling ModMode.
      */
     void finishToggleModMode(Player player, boolean enabled) {
         // log("finishToggleModMode()");
@@ -543,7 +545,7 @@ public class ModMode extends JavaPlugin {
     /**
      * Set the given player's ModMode state to enabled (true) or disabled
      * (false).
-     * 
+     *
      * The transition into ModMode comprises three steps:
      * <ol>
      * <li>Actions appropriate for the player's permissions prior to changing
@@ -556,16 +558,16 @@ public class ModMode extends JavaPlugin {
      * <li>Actions that depend on the player's permissions to be in their final
      * (promoted or demoted state).</li>
      * </ol>
-     * 
+     *
      * There is a slight wrinkle in that full admins inherit the ModMode group
      * and therefore don't get promoted or demoted. Thus, there are no promotion
      * or demotion events. Instead, we simply run the final step listed above
      * immediately.
-     * 
-     * @param player the affected player.
+     *
+     * @param player  the affected player.
      * @param enabled true if the player is entering the ModMode state. If true,
-     *        the player is enabling ModMode; if false, the player is disabling
-     *        ModMode.
+     *                the player is enabling ModMode; if false, the player is
+     *                disabling ModMode.
      */
     private void toggleModMode(final Player player, boolean enabled) {
         // log("toggleModMode()");
@@ -595,9 +597,9 @@ public class ModMode extends JavaPlugin {
     /**
      * When a player is promoted up or demoted down a track (async), schedule a
      * main-thread- synchronous task to complete the ModMode transition.
-     * 
+     *
      * This method is not a Bukkit event handler; it uses LuckPerms' EventBus.
-     * 
+     *
      * @param event the UserPromoteEvent or UserDemoteEvent.
      */
     protected void onUserTrackEvent(UserTrackEvent event) {
@@ -625,7 +627,7 @@ public class ModMode extends JavaPlugin {
     /**
      * Restore flight ability if in ModMode or creative game mode.
      *
-     * @param player the player.
+     * @param player      the player.
      * @param isInModMode true if the player is in ModMode.
      */
     void restoreFlight(Player player, boolean isInModMode) {
@@ -679,7 +681,7 @@ public class ModMode extends JavaPlugin {
      * Handle /modmode [save|reload] both for players in-game and the console.
      *
      * @param sender the command sender.
-     * @param args command arguments.
+     * @param args   command arguments.
      */
     private void cmdModMode(CommandSender sender, String[] args) {
         if (args.length == 0) {
@@ -732,7 +734,7 @@ public class ModMode extends JavaPlugin {
     /**
      * Run all of the commands in the List of Strings.
      *
-     * @param player the moderator causing the commands to run.
+     * @param player   the moderator causing the commands to run.
      * @param commands the commands to run.
      */
     private void runCommands(Player player, List<String> commands) {
@@ -753,19 +755,12 @@ public class ModMode extends JavaPlugin {
 
     // ------------------------------------------------------------------------
     /**
-     * A logging method used instead of {@link java.util.logging.Logger} to
-     * faciliate prefix coloring.
+     * Logging of general messages.
      *
      * @param msg the message to log.
      */
     static void log(String msg) {
-        System.out.println(PREFIX + msg);
+        PLUGIN.getLogger().info(msg);
     }
-
-    // ------------------------------------------------------------------------
-    /**
-     * This plugin's prefix as a string; for logging.
-     */
-    private static final String PREFIX = ChatColor.DARK_GRAY + "[" + ChatColor.GREEN + "ModMode" + ChatColor.DARK_GRAY + "] ";
 
 } // ModMode
