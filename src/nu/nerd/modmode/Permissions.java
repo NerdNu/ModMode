@@ -1,5 +1,10 @@
 package nu.nerd.modmode;
 
+import net.luckperms.api.context.ImmutableContextSet;
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.track.DemotionResult;
+import net.luckperms.api.track.PromotionResult;
+import net.luckperms.api.util.Result;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -23,6 +28,10 @@ public class Permissions {
             // Get the ball rolling on async track loading.
             getTrack(ModMode.CONFIG.MODMODE_TRACK_NAME);
             getTrack(ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME);
+            getTrack(ModMode.CONFIG.LOCAL_SERVER_ADMIN_MODMODE_TRACK_NAME);
+            contextSet = ImmutableContextSet.builder()
+                    .add("server", _api.getServerName())
+                    .build();
         } else {
             _api = null;
             ModMode.log("LuckPerms could not be found. Is it disabled or missing?");
@@ -35,7 +44,7 @@ public class Permissions {
      * Return true if the player has Admin permissions.
      *
      * That is, the player has permissions in excess of those of the ModMode
-     * permission group. This is a different concept from Permissions.OP, which
+     * permission group. This is a different concept from Permissions. OP, which
      * merely signifies that the player can administer this plugin.
      *
      * @return true for Admins, false for Moderators and default players.
@@ -69,9 +78,16 @@ public class Permissions {
      *         server admins modmode track if the player is a foreign server
      *         admin.
      */
-    private Track getAppropriateTrack(Player player) {
-        String trackName = (player.hasPermission("group.foreignserveradmins")) ? ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME
-                                                                               : ModMode.CONFIG.MODMODE_TRACK_NAME;
+    private Track getAppropriateTrack(Player player, String command) {
+
+        String trackName = "";
+
+        if(command.equalsIgnoreCase("modmode")) {
+            trackName = ModMode.CONFIG.MODMODE_TRACK_NAME;
+        } else if(command.equalsIgnoreCase("adminmode")) {
+            trackName = ModMode.CONFIG.LOCAL_SERVER_ADMIN_MODMODE_TRACK_NAME;
+        }
+
         Track track = getTrack(trackName);
         if (track == null) {
             ModMode.PLUGIN.getLogger().severe("Track \"" + trackName + "\" could not be loaded!");
@@ -85,9 +101,13 @@ public class Permissions {
      *
      * @param player the player to promote.
      */
-    void promote(Player player) {
-        Track track = getAppropriateTrack(player);
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " promote " + track.getName());
+    Result promote(Player player, String command) {
+        Track track = getAppropriateTrack(player, command);
+        User luckpermsPlayer = _api.getUserManager().getUser(player.getUniqueId());
+        if(luckpermsPlayer != null) {
+            return track.promote(luckpermsPlayer, contextSet);
+        }
+        return Result.GENERIC_FAILURE;
     }
 
     // ------------------------------------------------------------------------
@@ -96,9 +116,13 @@ public class Permissions {
      *
      * @param player the player to demote.
      */
-    void demote(Player player) {
-        Track track = getAppropriateTrack(player);
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " demote " + track.getName());
+    Result demote(Player player, String command) {
+        Track track = getAppropriateTrack(player, command);
+        User luckpermsPlayer = _api.getUserManager().getUser(player.getUniqueId());
+        if(luckpermsPlayer != null) {
+            return track.demote(luckpermsPlayer, contextSet);
+        }
+        return Result.GENERIC_FAILURE;
     }
 
     // ------------------------------------------------------------------------
@@ -135,5 +159,10 @@ public class Permissions {
      * LuckPerms API instance.
      */
     private LuckPerms _api;
+
+    /**
+     * The LuckPerms context for promotions/demotions
+     */
+    private ImmutableContextSet contextSet;
 
 }

@@ -1,25 +1,21 @@
 package nu.nerd.modmode;
 
-import java.util.UUID;
-
+import net.coreprotect.event.CoreProtectPreLogEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
-import de.diddiz.LogBlock.Actor;
-import de.diddiz.LogBlock.events.BlockChangePreLogEvent;
-
 // ----------------------------------------------------------------------------
 /**
- * The LogBlock event-handling class.
+ * The CoreProtect event-handling class.
  */
-public class LogBlockListener implements Listener {
+public class CoreProtectListener implements Listener {
 
     // ------------------------------------------------------------------------
     /**
      * Constructor.
      */
-    LogBlockListener() {
+    CoreProtectListener() {
         ModMode.PLUGIN.getServer().getPluginManager().registerEvents(this, ModMode.PLUGIN);
     }
 
@@ -29,19 +25,18 @@ public class LogBlockListener implements Listener {
      * ModMode name.
      */
     @EventHandler
-    public void onLogBlockPreLogEvent(BlockChangePreLogEvent event) {
+    public void onLogBlockPreLogEvent(CoreProtectPreLogEvent event) {
         Player player;
         try {
-            UUID actorUUID = UUID.fromString(event.getOwnerActor().getUUID());
-            player = ModMode.PLUGIN.getServer().getPlayer(actorUUID);
+            player = ModMode.PLUGIN.getServer().getPlayer(event.getUser());
         } catch (Exception e) {
             // probably liquid flow or something
             return;
         }
         if (player != null && ModMode.PLUGIN.isModMode(player)) {
-            Actor actor = new Actor(ModMode.PLUGIN.getCleanModModeName(player));
-            event.setOwner(actor);
+            String user = ModMode.PLUGIN.getCleanModModeName(player);
+            event.setUser(user);
         }
     }
 
-} // LogBlockListener
+} // CoreProtectListener

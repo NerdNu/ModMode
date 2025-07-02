@@ -24,6 +24,11 @@ class Configuration {
     public String MODMODE_TRACK_NAME;
 
     /**
+     * Name of the track that local server admins and higher can be promoted along when entering AdminMode.
+     */
+    public String LOCAL_SERVER_ADMIN_MODMODE_TRACK_NAME;
+
+    /**
      * Name of the track that foreign server admins are promoted along to enter
      * ModMode.
      */
@@ -66,22 +71,42 @@ class Configuration {
     /**
      * Commands executed immediately before ModMode is activated.
      */
-    public List<String> BEFORE_ACTIVATION_COMMANDS;
+    public List<String> MODMODE_BEFORE_ACTIVATION_COMMANDS;
 
     /**
      * Commands executed immediately after ModMode is activated.
      */
-    public List<String> AFTER_ACTIVATION_COMMANDS;
+    public List<String> MODMODE_AFTER_ACTIVATION_COMMANDS;
 
     /**
      * Commands executed immediately before ModMode is deactivated.
      */
-    public List<String> BEFORE_DEACTIVATION_COMMANDS;
+    public List<String> MODMODE_BEFORE_DEACTIVATION_COMMANDS;
 
     /**
      * Commands executed immediately after ModMode is deactivated.
      */
-    public List<String> AFTER_DEACTIVATION_COMMANDS;
+    public List<String> MODMODE_AFTER_DEACTIVATION_COMMANDS;
+
+    /**
+     * Commands executed immediately before AdminMode is activated.
+     */
+    public List<String> ADMINMODE_BEFORE_ACTIVATION_COMMANDS;
+
+    /**
+     * Commands executed immediately after AdminMode is activated.
+     */
+    public List<String> ADMINMODE_AFTER_ACTIVATION_COMMANDS;
+
+    /**
+     * Commands executed immediately before AdminMode is deactivated.
+     */
+    public List<String> ADMINMODE_BEFORE_DEACTIVATION_COMMANDS;
+
+    /**
+     * Commands executed immediately after AdminMode is deactivated.
+     */
+    public List<String> ADMINMODE_AFTER_DEACTIVATION_COMMANDS;
 
     /**
      * Delay in ticks to wait before setting the player's vanish state.
@@ -94,9 +119,9 @@ class Configuration {
     public PlayerUuidSet MODMODE_CACHE = new PlayerUuidSet("modmode");
 
     /**
-     * A cache of players (UUIDs) currently in ModMode.
+     * A cache of players (UUIDs) currently in AdminMode.
      */
-    public PlayerUuidSet MODMODE_PENDING = new PlayerUuidSet("modmode-pending");
+    public PlayerUuidSet ADMINMODE_CACHE = new PlayerUuidSet("adminmode");
 
     // ------------------------------------------------------------------------
     /**
@@ -154,24 +179,29 @@ class Configuration {
         .forEach(LOGGED_OUT_VANISHED::add);
 
         MODMODE_CACHE.load(_config);
+        ADMINMODE_CACHE.load(_config);
         MODMODE_PENDING.load(_config);
 
         SUPPRESSED_LOGIN_MESSAGE.clear();
         ALLOW_FLIGHT = _config.getBoolean("allow.flight", true);
 
-        // update collisions for players in ModMode
-        NerdBoardHook.setAllowCollisions(_config.getBoolean("allow.collisions", true));
-
         MODMODE_TRACK_NAME = _config.getString("permissions.tracks.moderators", "modmode-track");
+        LOCAL_SERVER_ADMIN_MODMODE_TRACK_NAME = _config.getString("permissions.tracks.local-server-admins",
+                "local-server-admins-modmode-track");
         FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME = _config.getString("permissions.tracks.foreign-server-admins",
-                                                                    "foreign-server-admins-modmode-track");
+                "foreign-server-admins-modmode-track");
 
         DEBUG_PLAYER_DATA = _config.getBoolean("debug.playerdata");
 
-        BEFORE_ACTIVATION_COMMANDS = _config.getStringList("commands.activate.before");
-        AFTER_ACTIVATION_COMMANDS = _config.getStringList("commands.activate.after");
-        BEFORE_DEACTIVATION_COMMANDS = _config.getStringList("commands.deactivate.before");
-        AFTER_DEACTIVATION_COMMANDS = _config.getStringList("commands.deactivate.after");
+        MODMODE_BEFORE_ACTIVATION_COMMANDS = _config.getStringList("commands.modmode.activate.before");
+        MODMODE_AFTER_ACTIVATION_COMMANDS = _config.getStringList("commands.modmode.activate.after");
+        MODMODE_BEFORE_DEACTIVATION_COMMANDS = _config.getStringList("commands.modmode.deactivate.before");
+        MODMODE_AFTER_DEACTIVATION_COMMANDS = _config.getStringList("commands.modmode.deactivate.after");
+
+        ADMINMODE_BEFORE_ACTIVATION_COMMANDS = _config.getStringList("commands.adminmode.activate.before");
+        ADMINMODE_AFTER_ACTIVATION_COMMANDS = _config.getStringList("commands.adminmode.activate.after");
+        ADMINMODE_BEFORE_DEACTIVATION_COMMANDS = _config.getStringList("commands.adminmode.deactivate.before");
+        ADMINMODE_AFTER_DEACTIVATION_COMMANDS = _config.getStringList("commands.adminmode.deactivate.after");
     }
 
     // ------------------------------------------------------------------------
@@ -185,7 +215,6 @@ class Configuration {
         MODMODE_CACHE.save(_config);
         MODMODE_PENDING.save(_config);
         _config.set("allow.flight", ALLOW_FLIGHT);
-        _config.set("allow.collisions", NerdBoardHook.allowsCollisions());
         ModMode.PLUGIN.saveConfig();
     }
 

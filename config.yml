@@ -2,17 +2,22 @@ server: pve-dev
 
 allow:
   flight: true
-  collisions: true
 
 commands:
-  activate:
-    before: []
-    after:
-    - /we cui
-    - /lb toolblock on
-  deactivate:
-    before: []
-    after: []
+  modmode:
+    activate:
+      before: [ ]
+      after: [ ]
+    deactivate:
+      before: [ ]
+      after: [ ]
+  adminmode:
+    activate:
+      before: [ ]
+      after: [ ]
+    deactivate:
+      before: [ ]
+      after: [ ]
 
 debug:
   playerdata: false
@@ -20,5 +25,7 @@ debug:
 permissions:
   modmode-group: ModMode
   moderator-group: moderators
+  adminmode-group: AdminMode
+  admin-group: admins
   persistent-groups: []
   worlds: []

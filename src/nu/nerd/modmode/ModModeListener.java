@@ -70,7 +70,7 @@ public class ModModeListener implements Listener {
             }
         }
 
-        NerdBoardHook.reconcilePlayerWithVanishState(player);
+        TABHook.reconcilePlayerWithVanishState(player);
         ModMode.PLUGIN.updateAllPlayersSeeing();
     }
 
