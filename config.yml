@@ -1,24 +1,65 @@
 server: pve-dev
 
-allow:
-  flight: true
-  collisions: true
-
-commands:
-  activate:
-    before: []
-    after:
-    - /we cui
-    - /lb toolblock on
-  deactivate:
-    before: []
-    after: []
-
-debug:
-  playerdata: false
-
-permissions:
-  modmode-group: ModMode
-  moderator-group: moderators
-  persistent-groups: []
-  worlds: []
+# Place groups in order of hierarchy. For example, an admin group should be above a moderator group.
+groups:
+  # Note: this is the group name and also the name of the command that will be generated.
+  modmode:
+    # The information needed when registering a command.
+    commandMeta:
+      # The description that will show in /help.
+      description: "Modmode."
+      # The permission required to run this command/enter this group.
+      permission: "modmode.modmode"
+      # Command aliases (i.e. /mm instead of /modmode). Don't include the slash (/).
+      aliases:
+        - "mm"
+    # The commands that run depending on the state of transition.
+    actions:
+      # When entering the group.
+      activate:
+        # Before group and new permissions are applied.
+        before: [ ]
+        # After group and new permissions are applied.
+        after:
+          - "we cui"
+          - "co i"
+      # When leaving the group.
+      deactivate:
+        # Before removed from group with the same permissions as that group.
+        before: [ ]
+        # After removed from group, now with default permissions.
+        after: [ ]
+    # Misc. group options.
+    details:
+      # The name of the LuckPerms track this group will promote/demote from.
+      trackName: "modmode-track"
+      # The prefix of this group. Supports MiniMessage formatting.
+      prefix: "<green>"
+      # If players in this group are allowed to fly.
+      allowFlight: true
+      # If players in this group collide with other entities.
+      allowCollisions: false
+      # Hide join/leave messages if a player is in this group.
+      suppressJoinMessages: true
+      # If players in this group can pick up or drop items. Also adds a toggle command for this.
+      interactWithItems: false
+  adminmode:
+    commandMeta:
+      description: "Adminmode."
+      permission: "modmode.adminmode"
+      aliases:
+        - "am"
+    actions:
+      activate:
+        before: [ ]
+        after: [ ]
+      deactivate:
+        before: [ ]
+        after: [ ]
+    details:
+      trackName: "adminmode-track"
+      prefix: "<gold>"
+      allowFlight: true
+      allowCollisions: false
+      suppressJoinMessages: true
+      interactWithItems: false

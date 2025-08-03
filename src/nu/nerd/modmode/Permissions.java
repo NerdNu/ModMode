@@ -1,5 +1,8 @@
 package nu.nerd.modmode;
 
+import net.luckperms.api.context.MutableContextSet;
+import net.luckperms.api.model.user.User;
+import net.luckperms.api.util.Result;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -16,32 +19,17 @@ public class Permissions {
     /**
      * Constructor.
      */
-    Permissions() {
+    Permissions(ModMode plugin) {
+        this.plugin = plugin;
         RegisteredServiceProvider<LuckPerms> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPerms.class);
         if (svcProvider != null) {
             _api = svcProvider.getProvider();
-            // Get the ball rolling on async track loading.
-            getTrack(ModMode.CONFIG.MODMODE_TRACK_NAME);
-            getTrack(ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME);
+            contextSet = MutableContextSet.create();
         } else {
             _api = null;
-            ModMode.log("LuckPerms could not be found. Is it disabled or missing?");
-            Bukkit.getPluginManager().disablePlugin(ModMode.PLUGIN);
+            plugin.logError("LuckPerms could not be found. Is it disabled or missing?");
+            Bukkit.getPluginManager().disablePlugin(plugin);
         }
-    }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Return true if the player has Admin permissions.
-     *
-     * That is, the player has permissions in excess of those of the ModMode
-     * permission group. This is a different concept from Permissions.OP, which
-     * merely signifies that the player can administer this plugin.
-     *
-     * @return true for Admins, false for Moderators and default players.
-     */
-    boolean isAdmin(Player player) {
-        return player.hasPermission(ADMIN);
     }
 
     // ------------------------------------------------------------------------
@@ -61,47 +49,60 @@ public class Permissions {
 
     // ------------------------------------------------------------------------
     /**
-     * Returns the modmode track if the player is a moderator, or the foreign
-     * server admins modmode track if the player is a foreign server admin.
+     * Returns the instance of the specified group's track from the LuckPerms API.
      *
-     * @param player the player.
-     * @return the modmode track if the player is a moderator, or the foreign
-     *         server admins modmode track if the player is a foreign server
-     *         admin.
+     * @return the instance of the specified group's track from the LuckPerms API.
      */
-    private Track getAppropriateTrack(Player player) {
-        String trackName = (player.hasPermission("group.foreignserveradmins")) ? ModMode.CONFIG.FOREIGN_SERVER_ADMIN_MODMODE_TRACK_NAME
-                                                                               : ModMode.CONFIG.MODMODE_TRACK_NAME;
+    private Track getAppropriateTrack(ModModeGroup group) {
+        String trackName = group.getTrackName();
         Track track = getTrack(trackName);
         if (track == null) {
-            ModMode.PLUGIN.getLogger().severe("Track \"" + trackName + "\" could not be loaded!");
+            plugin.logError("Track \"" + trackName + "\" could not be loaded!");
         }
         return track;
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Promotes the player along the track corresponding to their primary group.
+     * Promotes the player along the track corresponding to their group.
      *
      * @param player the player to promote.
      */
-    void promote(Player player) {
-        Track track = getAppropriateTrack(player);
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " promote " + track.getName());
+    public boolean promote(Player player, ModModeGroup group) {
+        Track track = getAppropriateTrack(group);
+        User luckpermsPlayer = _api.getUserManager().getUser(player.getUniqueId());
+        if(track != null && luckpermsPlayer != null) {
+            Result result = track.promote(luckpermsPlayer, contextSet);
+            return result.wasSuccessful();
+        }
+        plugin.stateFail(player, player.getUniqueId());
+        return false;
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Demotes the player along the track corresponding to their primary group.
+     * Demotes the player along the track corresponding to their group.
      *
      * @param player the player to demote.
      */
-    void demote(Player player) {
-        Track track = getAppropriateTrack(player);
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "lp user " + player.getName() + " demote " + track.getName());
+    public boolean demote(Player player, ModModeGroup group) {
+        Track track = getAppropriateTrack(group);
+        User luckpermsPlayer = _api.getUserManager().getUser(player.getUniqueId());
+        if(track != null && luckpermsPlayer != null) {
+            Result result = track.demote(luckpermsPlayer, contextSet);
+            return result.wasSuccessful();
+        }
+        plugin.stateFail(player, player.getUniqueId());
+        return false;
     }
 
     // ------------------------------------------------------------------------
+
+    /**
+     * The instance of the plugin.
+     */
+    private ModMode plugin;
+
     /**
      * Prefix of permission nodes.
      */
@@ -113,27 +114,13 @@ public class Permissions {
     public static final String VANISH = MODMODE + "vanish";
 
     /**
-     * Permission to toggle ModMode state.
-     */
-    public static final String TOGGLE = MODMODE + "toggle";
-
-    /**
-     * Tags the user as an admin, whose permissions will not change along a
-     * track (because they are already in the ModMode group).
-     * 
-     * @TODO: This seems a bit redundant (review code).
-     * @TODO: Check current permissions in light of this discovery.
-     */
-    public static final String ADMIN = MODMODE + "admin";
-
-    /**
-     * Permission to use administer the plugin as a console user/operator.
-     */
-    public static final String OP = MODMODE + "op";
-
-    /**
      * LuckPerms API instance.
      */
     private LuckPerms _api;
+
+    /**
+     * The LuckPerms context for promotions/demotions
+     */
+    private MutableContextSet contextSet;
 
 }

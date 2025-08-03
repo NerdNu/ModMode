@@ -6,8 +6,8 @@ authors: [Travis Watkins, Deaygo]
 website: ${project.url}
 
 main: nu.nerd.modmode.ModMode
-softdepend: [TagAPI, LogBlock]
-depend: [Vault, VanishNoPacket, NerdBoard]
+softdepend: [CoreProtect]
+depend: [VanishNoPacket, TAB]
 
 api-version: 1.13
 
@@ -18,21 +18,19 @@ commands:
   unvanish:
     description: Unvanish.
     permission: modmode.unvanish
-  vanishlist:
-    description: Show list of invisible people
-    permission: modmode.vanishlist
-  modmode:
-    description: Toggle ModMode
-    permission: modmode.toggle
+  reloadmodmode:
+    description: Reload the configuration file for ModMode.
+    permission: modmode.reload
 
 permissions:
   modmode:
     description: Allow the player all Vanish-related permissions
-    children:
-      modmode.vanishlist:
-        description: Allow the player to see the vanish list
+
   modmode.toggle:
     description: Allow the player to enter ModMode
+
+  modmode.admin:
+    description: Bypasses normal modmode and grants additional admin permissions.
 
   modmode.op:
     description: Allow use of /modmode save and /modmode reload admin commands.
