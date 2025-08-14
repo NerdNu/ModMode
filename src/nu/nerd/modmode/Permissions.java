@@ -1,5 +1,6 @@
 package nu.nerd.modmode;
 
+import net.luckperms.api.context.ImmutableContextSet;
 import net.luckperms.api.context.MutableContextSet;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.util.Result;
@@ -15,7 +16,7 @@ import net.luckperms.api.track.Track;
  * A wrapper around the LuckPerms API to provide only the abstractions we need.
  */
 public class Permissions {
-    // ------------------------------------------------------------------------
+
     /**
      * Constructor.
      */
@@ -23,10 +24,9 @@ public class Permissions {
         this.plugin = plugin;
         RegisteredServiceProvider<LuckPerms> svcProvider = Bukkit.getServer().getServicesManager().getRegistration(LuckPerms.class);
         if (svcProvider != null) {
-            _api = svcProvider.getProvider();
-            contextSet = MutableContextSet.create();
+            _luckpermsAPI = svcProvider.getProvider();
         } else {
-            _api = null;
+            _luckpermsAPI = null;
             plugin.logError("LuckPerms could not be found. Is it disabled or missing?");
             Bukkit.getPluginManager().disablePlugin(plugin);
         }
@@ -40,10 +40,10 @@ public class Permissions {
      * @return the Track, or null if it does not exist.
      */
     Track getTrack(String name) {
-        if (_api.getTrackManager().isLoaded(name)) {
-            return _api.getTrackManager().getTrack(name);
+        if (_luckpermsAPI.getTrackManager().isLoaded(name)) {
+            return _luckpermsAPI.getTrackManager().getTrack(name);
         } else {
-            return _api.getTrackManager().loadTrack(name).join().orElse(null);
+            return _luckpermsAPI.getTrackManager().loadTrack(name).join().orElse(null);
         }
     }
 
@@ -69,13 +69,19 @@ public class Permissions {
      * @param player the player to promote.
      */
     public boolean promote(Player player, ModModeGroup group) {
+        System.out.println("Promoting player " + player.getName() + " in group " + group.getName());
         Track track = getAppropriateTrack(group);
-        User luckpermsPlayer = _api.getUserManager().getUser(player.getUniqueId());
+        User luckpermsPlayer = _luckpermsAPI.getUserManager().getUser(player.getUniqueId());
         if(track != null && luckpermsPlayer != null) {
-            Result result = track.promote(luckpermsPlayer, contextSet);
-            return result.wasSuccessful();
+            System.out.println("Got track and user");
+            Result result = track.promote(luckpermsPlayer, ImmutableContextSet.empty());
+            if(result.wasSuccessful()) {
+                System.out.println("Promotion successful");
+                _luckpermsAPI.getUserManager().saveUser(luckpermsPlayer);
+                return true;
+            }
         }
-        plugin.stateFail(player, player.getUniqueId());
+        System.out.println("Failed to promote player " + player.getName() + " in group " + group.getName());
         return false;
     }
 
@@ -86,14 +92,30 @@ public class Permissions {
      * @param player the player to demote.
      */
     public boolean demote(Player player, ModModeGroup group) {
+        System.out.println("Demoting player " + player.getName() + " in group " + group.getName());
         Track track = getAppropriateTrack(group);
-        User luckpermsPlayer = _api.getUserManager().getUser(player.getUniqueId());
+        User luckpermsPlayer = _luckpermsAPI.getUserManager().getUser(player.getUniqueId());
         if(track != null && luckpermsPlayer != null) {
-            Result result = track.demote(luckpermsPlayer, contextSet);
-            return result.wasSuccessful();
+            System.out.println("Got track and user");
+            Result result = track.demote(luckpermsPlayer, ImmutableContextSet.empty());
+            if(result.wasSuccessful()) {
+                System.out.println("Demotion successful");
+                _luckpermsAPI.getUserManager().saveUser(luckpermsPlayer);
+                return true;
+            }
         }
-        plugin.stateFail(player, player.getUniqueId());
+        System.out.println("Failed to demote player " + player.getName() + " in group " + group.getName());
         return false;
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Returns an instance of the LuckPerms API.
+     * @return an instance of the LuckPerms API.
+     */
+    public LuckPerms getLuckPermsAPI() {
+        return _luckpermsAPI;
     }
 
     // ------------------------------------------------------------------------
@@ -116,11 +138,6 @@ public class Permissions {
     /**
      * LuckPerms API instance.
      */
-    private LuckPerms _api;
-
-    /**
-     * The LuckPerms context for promotions/demotions
-     */
-    private MutableContextSet contextSet;
+    private LuckPerms _luckpermsAPI;
 
 }

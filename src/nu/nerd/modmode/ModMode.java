@@ -152,7 +152,7 @@ public class ModMode extends JavaPlugin {
                 NamedTextColor.BLUE), 1, BossBar.Color.BLUE, BossBar.Overlay.PROGRESS);
 
         modeUnvanishedBar = BossBar.bossBar(Component.text("⚠ You're unvanished! ⚠",
-                NamedTextColor.RED), 1, BossBar.Color.RED, BossBar.Overlay.PROGRESS);
+                NamedTextColor.RED), 1, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS);
 
         final int TEN_MINUTES = 10 * 60 * 20;
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
@@ -283,7 +283,6 @@ public class ModMode extends JavaPlugin {
                 " persists, let an admin know.", NamedTextColor.RED, TextDecoration.BOLD));
         for(ModModeGroup group : groupMap.values()) {
             group.removeMember(uuid);
-            permissions.demote(player, group);
         }
     }
 

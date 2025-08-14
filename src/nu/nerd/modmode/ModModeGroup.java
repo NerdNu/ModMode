@@ -42,6 +42,8 @@ public class ModModeGroup {
     private boolean allowCollisions;
     private boolean suppressJoinMessages;
     private boolean interactWithItems;
+    private GameMode defaultGameMode;
+    private GameMode defaultGameModeOnDeactivate;
 
     // Other necessary objects
     private ModMode plugin;
@@ -71,7 +73,8 @@ public class ModModeGroup {
     public ModModeGroup(String name, ModModeCommand command, List<String> activateBefore,
                         List<String> activateAfter, List<String> deactivateBefore, List<String> deactivateAfter, String trackName,
                         String prefix, boolean allowFlight, boolean allowCollisions, boolean suppressJoinMessages,
-                        boolean interactWithItems, List<UUID> members, ModMode plugin, TabAPI TABAPI) {
+                        boolean interactWithItems, GameMode defaultGameMode, GameMode defaultGameModeOnDeactivate,
+                        List<UUID> members, ModMode plugin, TabAPI TABAPI) {
         this.name = name;
         this.command = command;
         this.activateBefore = activateBefore;
@@ -84,6 +87,8 @@ public class ModModeGroup {
         this.allowCollisions = allowCollisions;
         this.suppressJoinMessages = suppressJoinMessages;
         this.interactWithItems = interactWithItems;
+        this.defaultGameMode = defaultGameMode;
+        this.defaultGameModeOnDeactivate = defaultGameModeOnDeactivate;
         this.members = members;
         this.plugin = plugin;
         this.TABAPI = TABAPI;
@@ -135,7 +140,13 @@ public class ModModeGroup {
             }
             continueStateChange(player, uuid, false);
         } else {
+            // Trigger a state fail
             plugin.stateFail(player, uuid);
+            /*
+             Re-add them to the group so they can transition out properly and not be in a limbo state until
+             they run the toggle command again.
+             */
+            addMember(uuid);
         }
     }
 
@@ -198,8 +209,6 @@ public class ModModeGroup {
             config.addMemberToGroup(this.getName(), uuid);
         } else {
             config.removeMemberFromGroup(this.getName(), uuid);
-            // Some groups may be able to switch game modes. This enforces the survival game mode outside of mode.
-            player.setGameMode(GameMode.SURVIVAL);
         }
 
         // Swap player inventories and other information.
@@ -242,11 +251,16 @@ public class ModModeGroup {
         plugin.restoreFlight(player, this, promotion);
         updateMemberName(TABAPI.getPlayer(player.getUniqueId()), promotion);
 
+        // Refresh vanished players so they can see each other.
+        plugin.updateAllPlayersSeeing();
+
         if(promotion) {
+            player.setGameMode(defaultGameMode);
             runCommands(player, activateAfter);
             player.showBossBar(inModeBar);
             player.hideBossBar(plugin.getVanishedBar());
         } else {
+            player.setGameMode(defaultGameModeOnDeactivate);
             player.hideBossBar(inModeBar);
             player.hideBossBar(plugin.getModeUnvanishedBar());
         }
@@ -424,5 +438,16 @@ public class ModModeGroup {
         this.allowCollisions = allowCollisions;
         this.suppressJoinMessages = suppressJoinMessages;
         this.interactWithItems = interactWithItems;
+        if(interactWithItems && membersBypassingItemBlock == null) {
+            membersBypassingItemBlock = new HashSet<>();
+            itemInteractionEnabledBar = BossBar.bossBar(Component.text("⚠ You have item interaction enabled! ⚠",
+                    NamedTextColor.RED), 1, BossBar.Color.RED, BossBar.Overlay.PROGRESS);
+        } else if (!interactWithItems && membersBypassingItemBlock != null) {
+            for(UUID memberUUID : membersBypassingItemBlock) {
+                removeBypassingItemBlock(memberUUID);
+            }
+            membersBypassingItemBlock = null;
+            itemInteractionEnabledBar = null;
+        }
     }
 }

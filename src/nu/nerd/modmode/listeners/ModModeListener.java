@@ -48,6 +48,8 @@ public class ModModeListener implements Listener {
         this.TABAPI = plugin.getTABAPI();
         this.permissions = plugin.getPermissions();
         Bukkit.getPluginManager().registerEvents(this, plugin);
+
+        // TAB Events
         onPlayerLoad();
     }
 

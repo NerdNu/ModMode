@@ -1,9 +1,8 @@
 package nu.nerd.modmode;
 
 import me.neznamy.tab.api.TabAPI;
-import me.neznamy.tab.api.TabPlayer;
-import me.neznamy.tab.api.nametag.NameTagManager;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Statistic;
 import org.bukkit.attribute.Attribute;
@@ -17,7 +16,6 @@ import org.bukkit.potion.PotionEffect;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.regex.Pattern;
 
 // ----------------------------------------------------------------------------
 
@@ -31,18 +29,21 @@ class Configuration {
     private HashMap<String, ModModeGroup> groupMap;
     private HashMap<UUID, ModModeGroup> playerGroupMap;
 
+    private final int CONFIG_VERSION = 2;
     private FileConfiguration _config;
     private File _configFile;
     private FileConfiguration _memberConfig;
     private File _memberConfigFile;
-    private String SERVER_NAME;
+
+    private ArrayList<String> migrationUUIDs;
+    private boolean migrating;
+    private ModModeGroup lowestGroup;
 
     public Configuration(ModMode plugin, TabAPI TABAPI) {
         this.plugin = plugin;
         this.TABAPI = TABAPI;
         this.groupMap = plugin.getGroups();
         this.playerGroupMap = plugin.getPlayerGroupMap();
-        plugin.logInfo("RELOADING PPGOME");
         plugin.saveDefaultConfig();
         plugin.reloadConfig();
         createMemberConfig();
@@ -57,91 +58,111 @@ class Configuration {
      */
     public void reload() {
         // Fetch the data asynchronously.
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            HashMap<String, ModModeGroup> newGroupMap = new HashMap<>();
-            HashMap<UUID, ModModeGroup> newPlayerGroupMap = new HashMap<>();
-            plugin.reloadConfig();
-            _config = plugin.getPLUGIN().getConfig();
-            _configFile = new File(plugin.getDataFolder(), "config.yml");
-            _memberConfig = YamlConfiguration.loadConfiguration(_memberConfigFile);
+        HashMap<String, ModModeGroup> newGroupMap = new HashMap<>();
+        HashMap<UUID, ModModeGroup> newPlayerGroupMap = new HashMap<>();
+        plugin.reloadConfig();
+        _config = plugin.getConfig();
+        _configFile = new File(plugin.getDataFolder(), "config.yml");
+        _memberConfig = YamlConfiguration.loadConfiguration(_memberConfigFile);
 
-            boolean issue = false;
-            SERVER_NAME = _config.getString("server");
+        int versionCheck = _config.getInt("configVersion", 0);
+        migrating = migrateFetch(versionCheck);
 
-            // Group builder
-            for (String groupName : _config.getConfigurationSection("groups").getKeys(false)) {
-                // commandMeta
-                String description = _config.getString("groups." + groupName + ".commandMeta.description");
-                String permission = _config.getString("groups." + groupName + ".commandMeta.permission");
-                List<String> aliases = _config.getStringList("groups." + groupName + ".commandMeta.aliases");
+        boolean issue = false;
+        boolean firstGroup = true;
 
-                // actions
-                List<String> activateBefore = _config.getStringList("groups." + groupName + ".actions.activate.before");
-                List<String> activateAfter = _config.getStringList("groups." + groupName + ".actions.activate.after");
-                List<String> deactivateBefore = _config.getStringList("groups." + groupName + ".actions.deactivate.before");
-                List<String> deactivateAfter = _config.getStringList("groups." + groupName + ".actions.deactivate.after");
+        // Group builder
+        for (String groupName : _config.getConfigurationSection("groups").getKeys(false)) {
+            // commandMeta
+            String description = _config.getString("groups." + groupName + ".commandMeta.description");
+            String permission = _config.getString("groups." + groupName + ".commandMeta.permission");
+            List<String> aliases = _config.getStringList("groups." + groupName + ".commandMeta.aliases");
 
-                // details
-                String trackName = _config.getString("groups." + groupName + ".details.trackName");
-                String prefix = _config.getString("groups." + groupName + ".details.prefix");
-                boolean allowFlight = _config.getBoolean("groups." + groupName + ".details.allowFlight", false);
-                boolean allowCollisions = _config.getBoolean("groups." + groupName + ".details.allowCollisions", true);
-                boolean suppressJoinMessages = _config.getBoolean("groups." + groupName + ".details.suppressJoinMessages", false);
-                boolean interactWithItems = _config.getBoolean("groups." + groupName + ".details.interactWithItems", false);
+            // actions
+            List<String> activateBefore = _config.getStringList("groups." + groupName + ".actions.activate.before");
+            List<String> activateAfter = _config.getStringList("groups." + groupName + ".actions.activate.after");
+            List<String> deactivateBefore = _config.getStringList("groups." + groupName + ".actions.deactivate.before");
+            List<String> deactivateAfter = _config.getStringList("groups." + groupName + ".actions.deactivate.after");
 
-                if (!_memberConfig.contains("groups." + groupName)) {
-                    _memberConfig.set("groups." + groupName + ".members", new ArrayList<String>());
-                    saveMemberConfig();
-                }
+            // details
+            String trackName = _config.getString("groups." + groupName + ".details.trackName");
+            String prefix = _config.getString("groups." + groupName + ".details.prefix");
+            boolean allowFlight = _config.getBoolean("groups." + groupName + ".details.allowFlight", false);
+            boolean allowCollisions = _config.getBoolean("groups." + groupName + ".details.allowCollisions", true);
+            boolean suppressJoinMessages = _config.getBoolean("groups." + groupName + ".details.suppressJoinMessages", false);
+            boolean interactWithItems = _config.getBoolean("groups." + groupName + ".details.interactWithItems", false);
+            GameMode defaultGameMode = GameMode.valueOf(
+                    _config.getString("groups." + groupName + ".details.defaultGameMode", "SURVIVAL").toUpperCase());
+            GameMode defaultGameModeOnDeactivate = GameMode.valueOf(
+                    _config.getString("groups." + groupName + ".details.defaultGameModeOnDeactivate", "SURVIVAL").toUpperCase());
 
-                // members
-                List<UUID> members = getGroupMembers(groupName);
-
-                if (description == null) issue = true;
-                if (permission == null) issue = true;
-                if (trackName == null) issue = true;
-                if (prefix == null) issue = true;
-
-                // If no issues arise, set up the hashmaps.
-                if (!issue) {
-                    ModModeGroup existingGroup = plugin.getGroups().get(groupName);
-                    // If the group already exists (only happens from the reload command)...
-                    if (existingGroup != null) {
-                        plugin.logInfo("RELOADING EXISTING GROUP " + groupName);
-                        existingGroup.updateGroup(activateBefore, activateAfter, deactivateBefore, deactivateAfter,
-                                trackName, prefix, allowFlight, allowCollisions, suppressJoinMessages, interactWithItems);
-                        newGroupMap.put(groupName, existingGroup);
-                        for (UUID member : members) {
-                            newPlayerGroupMap.put(member, existingGroup);
-                        }
-                    }
-                    // If the group is new (always happens on server start)...
-                    else {
-                        plugin.logInfo("LOADING NEW GROUP " + groupName);
-                        ModModeCommand newCommand = new ModModeCommand(groupName.toLowerCase(), description, permission,
-                                aliases, interactWithItems, plugin);
-                        ModModeGroup newGroup = new ModModeGroup(groupName, newCommand, activateBefore, activateAfter,
-                                deactivateBefore, deactivateAfter, trackName, prefix, allowFlight, allowCollisions,
-                                suppressJoinMessages, interactWithItems, members, plugin, TABAPI);
-                        newGroupMap.put(groupName, newGroup);
-                        for (UUID member : members) {
-                            newPlayerGroupMap.put(member, newGroup);
-                        }
-                    }
-                } else {
-                    plugin.logError("There was an issue with group " + groupName + ". This group has not been loaded.");
-                }
+            if (!_memberConfig.contains("groups." + groupName)) {
+                _memberConfig.set("groups." + groupName + ".members", new ArrayList<String>());
+                saveMemberConfig();
             }
-            // Save the data on the main thread.
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                groupMap.putAll(newGroupMap);
-                playerGroupMap.putAll(newPlayerGroupMap);
 
-                for(ModModeGroup group : newGroupMap.values()) {
-                    Bukkit.getCommandMap().register(group.getName().toLowerCase(), group.getCommand());
+            // members
+            List<UUID> members = getGroupMembers(groupName);
+
+            if (description == null) issue = true;
+            if (permission == null) issue = true;
+            if (trackName == null) issue = true;
+            if (prefix == null) issue = true;
+
+            // If no issues arise, set up the hashmaps.
+            if (!issue) {
+                ModModeGroup existingGroup = plugin.getGroups().get(groupName);
+                // If the group already exists (only happens from the reload command)...
+                if (existingGroup != null) {
+                    plugin.logInfo("Reloading existing group: " + groupName);
+                    existingGroup.updateGroup(activateBefore, activateAfter, deactivateBefore, deactivateAfter,
+                            trackName, prefix, allowFlight, allowCollisions, suppressJoinMessages, interactWithItems);
+                    newGroupMap.put(groupName, existingGroup);
+                    for (UUID member : members) {
+                        newPlayerGroupMap.put(member, existingGroup);
+                    }
+                    // Set the first group for migration purposes.
+                    if (migrating && firstGroup) {
+                        lowestGroup = existingGroup;
+                        firstGroup = false;
+                    }
+
                 }
-            });
-        });
+                // If the group is new (always happens on server start)...
+                else {
+                    plugin.logInfo("Loading new group: " + groupName);
+                    ModModeCommand newCommand = new ModModeCommand(groupName.toLowerCase(), description, permission,
+                            aliases, interactWithItems, plugin);
+                    ModModeGroup newGroup = new ModModeGroup(groupName, newCommand, activateBefore, activateAfter,
+                            deactivateBefore, deactivateAfter, trackName, prefix, allowFlight, allowCollisions,
+                            suppressJoinMessages, interactWithItems, defaultGameMode, defaultGameModeOnDeactivate,
+                            members, plugin, TABAPI);
+                    newGroupMap.put(groupName, newGroup);
+                    for (UUID member : members) {
+                        newPlayerGroupMap.put(member, newGroup);
+                    }
+                    // Set the first group for migration purposes.
+                    if (migrating && firstGroup) {
+                        lowestGroup = newGroup;
+                        firstGroup = false;
+                    }
+
+                }
+            } else {
+                plugin.logError("There was an issue with group " + groupName + ". This group has not been loaded.");
+            }
+        }
+        // Save the data on the main thread.
+        groupMap.putAll(newGroupMap);
+        playerGroupMap.putAll(newPlayerGroupMap);
+
+        if (migrating) migratePost();
+
+        for (ModModeGroup group : newGroupMap.values()) {
+            plugin.logError("Command for group " + group.getName() + " and command " + group.getCommand().getName());
+            boolean success = Bukkit.getCommandMap().register(group.getName().toLowerCase(), group.getCommand());
+            plugin.logError("Success? " + success);
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -150,7 +171,6 @@ class Configuration {
      * Saves all groups present in the members.yml file.
      */
     public void save() {
-        _config.set("server", SERVER_NAME);
         for (ModModeGroup group : plugin.getGroups().values()) {
             this.saveGroup(group);
         }
@@ -158,15 +178,56 @@ class Configuration {
 
     // ------------------------------------------------------------------------
 
+    private boolean migrateFetch(int version) {
+        if (version == CONFIG_VERSION) return false;
+        if (version == 0) {
+            migrationUUIDs = new ArrayList<>();
+            migrationUUIDs.addAll(_config.getStringList("logged-out-vanished"));
+            migrationUUIDs.addAll(_config.getStringList("modmode"));
+            migrationUUIDs.addAll(_config.getStringList("modmode-pending"));
+            migrationUUIDs.addAll(_config.getStringList("modmode-cache"));
+
+            if (_configFile.delete()) {
+                plugin.saveDefaultConfig();
+                plugin.reloadConfig();
+                _config = plugin.getConfig();
+                _configFile = new File(plugin.getDataFolder(), "config.yml");
+            } else {
+                migrationUUIDs.clear();
+                return false;
+            }
+        } else {
+            plugin.logError("Migration error: Config version not valid. (did you mean to change it from "
+                    + CONFIG_VERSION + "?)");
+        }
+        return true;
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Transfer the existing players in ModMode from previous versions to the new file.
+     */
+    public void migratePost() {
+        if (lowestGroup != null) {
+            for (String uuid : migrationUUIDs) {
+                plugin.logInfo("Migrating user previously in ModMode: " + uuid);
+                addMemberToGroup(lowestGroup.getName(), UUID.fromString(uuid));
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+
     /**
      * Saves a specific group in the members.yml file.
+     *
      * @param group the group being saved.
      */
     public void saveGroup(ModModeGroup group) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
             String groupName = group.getName();
             try {
-
                 // Members
                 List<String> uuidStrings = new ArrayList<>();
                 for (UUID uuid : group.getMembers()) {
@@ -219,7 +280,8 @@ class Configuration {
 
     /**
      * Adds a member to a specific group in the members.yml file.
-     * @param groupName the name of the group being added to.
+     *
+     * @param groupName  the name of the group being added to.
      * @param playerUUID the UUID of the player being added.
      */
     public void addMemberToGroup(String groupName, UUID playerUUID) {
@@ -237,7 +299,8 @@ class Configuration {
 
     /**
      * Removes a member from a specific group in the members.yml file.
-     * @param groupName the name of the group being removed from.
+     *
+     * @param groupName  the name of the group being removed from.
      * @param playerUUID the UUID of the player being removed.
      */
     public void removeMemberFromGroup(String groupName, UUID playerUUID) {
@@ -254,6 +317,7 @@ class Configuration {
 
     /**
      * Fetches all members of a group in the members.yml file.
+     *
      * @param groupName the name of the group being fetched from.
      * @return a list of member UUIDs.
      */
@@ -273,7 +337,7 @@ class Configuration {
     /**
      * Return the File used to store the player's normal or ModMode state.
      *
-     * @param player    the player.
+     * @param player the player.
      * @param isMode true if the data is for the ModMode state.
      * @return the File used to store the player's normal or ModMode state.
      */
@@ -290,7 +354,7 @@ class Configuration {
     /**
      * Save the player's data to a YAML configuration file.
      *
-     * @param player    the player.
+     * @param player the player.
      * @param isMode true if the saved data is for the ModMode inventory.
      */
     public void savePlayerData(Player player, boolean isMode) {
@@ -354,7 +418,7 @@ class Configuration {
     /**
      * Load the player's data from a YAML configuration file.
      *
-     * @param player    the player.
+     * @param player the player.
      * @param isMode true if the loaded data is for the ModMode inventory.
      */
     public void loadPlayerData(Player player, boolean isMode) {

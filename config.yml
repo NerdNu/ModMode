@@ -1,9 +1,9 @@
-server: pve-dev
-
-# Place groups in order of hierarchy. For example, an admin group should be above a moderator group.
+# Place groups in reverse order of hierarchy. For example, a moderator group should be above an admin group.
+# This is especially important for migrating from previous versions of ModMode as migrated players will
+# Be placed in the first group listed.
 groups:
   # Note: this is the group name and also the name of the command that will be generated.
-  modmode:
+  ModMode:
     # The information needed when registering a command.
     commandMeta:
       # The description that will show in /help.
@@ -26,7 +26,8 @@ groups:
       # When leaving the group.
       deactivate:
         # Before removed from group with the same permissions as that group.
-        before: [ ]
+        before:
+          - "co i off"
         # After removed from group, now with default permissions.
         after: [ ]
     # Misc. group options.
@@ -43,7 +44,12 @@ groups:
       suppressJoinMessages: true
       # If players in this group can pick up or drop items. Also adds a toggle command for this.
       interactWithItems: false
-  adminmode:
+      # Set the default gamemode for this group. Options: SURVIVAL, CREATIVE, ADVENTURE, SPECTATOR
+      defaultGameMode: "SURVIVAL"
+      # Set the gamemode to switch to when deactivating if the player is still in this gamemode.
+      # This is useful if you want to force players out of CREATIVE or SPECTATOR
+      defaultGameModeOnDeactivate: "SURVIVAL"
+  AdminMode:
     commandMeta:
       description: "Adminmode."
       permission: "modmode.adminmode"
@@ -63,3 +69,8 @@ groups:
       allowCollisions: false
       suppressJoinMessages: true
       interactWithItems: false
+      defaultGameMode: "SURVIVAL"
+      defaultGameModeOnDeactivate: "SURVIVAL"
+
+# DO NOT TOUCH THIS. Setting this to anything other than what it is will wipe your config!
+configVersion: 2.0

@@ -6,7 +6,7 @@
 | Dependency     | ModMode 4.1.x series releases | ModMode 4.2.x series releases | ModMode 5.0.x series releases |
 |----------------|-------------------------------|-------------------------------|-------------------------------|
 | Server         | Spigot                        | Spigot                        | PaperMC                       |
-| LuckPerms      | 4.x                           | 5.x                           | 5.3                           |
+| LuckPerms      | 4.x                           | 5.x                           | 5.5+                          |
 | VanishNoPacket | 3.19.1                        | 3.19.1                        | 3.22                          |
 | LogBlock       | dev-SNAPSHOT                  | dev-SNAPSHOT                  | Not necessary                 |
 | CoreProtect    | Not necessary                 | Not necessary                 | 22.4                          |
