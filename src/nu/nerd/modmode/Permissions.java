@@ -1,7 +1,6 @@
 package nu.nerd.modmode;
 
 import net.luckperms.api.context.ImmutableContextSet;
-import net.luckperms.api.context.MutableContextSet;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.util.Result;
 import org.bukkit.Bukkit;
@@ -78,6 +77,7 @@ public class Permissions {
             if(result.wasSuccessful()) {
                 System.out.println("Promotion successful");
                 _luckpermsAPI.getUserManager().saveUser(luckpermsPlayer);
+                _luckpermsAPI.runUpdateTask();
                 return true;
             }
         }
@@ -101,6 +101,7 @@ public class Permissions {
             if(result.wasSuccessful()) {
                 System.out.println("Demotion successful");
                 _luckpermsAPI.getUserManager().saveUser(luckpermsPlayer);
+                _luckpermsAPI.runUpdateTask();
                 return true;
             }
         }
