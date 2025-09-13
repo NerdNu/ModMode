@@ -68,20 +68,16 @@ public class Permissions {
      * @param player the player to promote.
      */
     public boolean promote(Player player, ModModeGroup group) {
-        System.out.println("Promoting player " + player.getName() + " in group " + group.getName());
         Track track = getAppropriateTrack(group);
         User luckpermsPlayer = _luckpermsAPI.getUserManager().getUser(player.getUniqueId());
         if(track != null && luckpermsPlayer != null) {
-            System.out.println("Got track and user");
             Result result = track.promote(luckpermsPlayer, ImmutableContextSet.empty());
             if(result.wasSuccessful()) {
-                System.out.println("Promotion successful");
                 _luckpermsAPI.getUserManager().saveUser(luckpermsPlayer);
                 _luckpermsAPI.runUpdateTask();
                 return true;
             }
         }
-        System.out.println("Failed to promote player " + player.getName() + " in group " + group.getName());
         return false;
     }
 
@@ -92,20 +88,16 @@ public class Permissions {
      * @param player the player to demote.
      */
     public boolean demote(Player player, ModModeGroup group) {
-        System.out.println("Demoting player " + player.getName() + " in group " + group.getName());
         Track track = getAppropriateTrack(group);
         User luckpermsPlayer = _luckpermsAPI.getUserManager().getUser(player.getUniqueId());
         if(track != null && luckpermsPlayer != null) {
-            System.out.println("Got track and user");
             Result result = track.demote(luckpermsPlayer, ImmutableContextSet.empty());
             if(result.wasSuccessful()) {
-                System.out.println("Demotion successful");
                 _luckpermsAPI.getUserManager().saveUser(luckpermsPlayer);
                 _luckpermsAPI.runUpdateTask();
                 return true;
             }
         }
-        System.out.println("Failed to demote player " + player.getName() + " in group " + group.getName());
         return false;
     }
 
