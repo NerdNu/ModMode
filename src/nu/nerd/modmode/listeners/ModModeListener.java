@@ -1,8 +1,11 @@
 package nu.nerd.modmode.listeners;
 
 
+import com.destroystokyo.paper.event.entity.EntityPathfindEvent;
+import com.destroystokyo.paper.event.player.PlayerAdvancementCriterionGrantEvent;
 import me.neznamy.tab.api.TabAPI;
 import me.neznamy.tab.api.event.player.PlayerLoadEvent;
+import me.neznamy.tab.api.event.plugin.TabLoadEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nu.nerd.modmode.ModMode;
@@ -12,15 +15,13 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameEvent;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockReceiveGameEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.entity.EntityPickupItemEvent;
-import org.bukkit.event.entity.EntityTargetEvent;
-import org.bukkit.event.entity.FoodLevelChangeEvent;
+import org.bukkit.event.entity.*;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
@@ -51,6 +52,7 @@ public class ModModeListener implements Listener {
 
         // TAB Events
         onPlayerLoad();
+        onTabReload();
     }
 
     // ------------------------------------------------------------------------
@@ -272,6 +274,49 @@ public class ModModeListener implements Listener {
                 }
             }
         }
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Prevents pets from teleporting to players in a mode.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityTeleport(EntityTeleportEvent event) {
+        Entity entity = event.getEntity();
+        if(entity instanceof Tameable pet &&
+                pet.isTamed() &&
+                pet.getOwner() instanceof Player player &&
+                plugin.isInMode(player)) event.setCancelled(true);
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Prevents mobs from following players in a mode.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onEntityTeleport(EntityPathfindEvent event) {
+        if(event.getTargetEntity() instanceof Player player && plugin.isInMode(player)) event.setCancelled(true);
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Prevents players in modmode from getting progress towards advancements.
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onPlayerAdvancementCriterionGrant(PlayerAdvancementCriterionGrantEvent event) {
+        if(plugin.isInMode(event.getPlayer())) event.setCancelled(true);
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Reset the TAB API instance when TAB is reloaded, as this can cause issues with ModMode.
+     */
+    public void onTabReload() {
+        TabAPI.getInstance().getEventBus().register(TabLoadEvent.class, tabLoadEvent -> plugin.updateTabAPI());
     }
 
 } // ModModeListener

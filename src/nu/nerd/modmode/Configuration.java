@@ -498,4 +498,14 @@ class Configuration {
         }
     }
 
+    // ------------------------------------------------------------------------
+
+    /**
+     * Updates the instance of the TAB API in the event the TAB plugin is reloaded.
+     * @param tabAPI the new instance of the TAB API.
+     */
+    public void updateTabAPI(TabAPI tabAPI) {
+        this.TABAPI = tabAPI;
+    }
+
 }

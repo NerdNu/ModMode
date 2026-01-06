@@ -1,6 +1,5 @@
 package nu.nerd.modmode;
 
-import java.io.File;
 import java.util.*;
 
 import me.neznamy.tab.api.TabAPI;
@@ -17,18 +16,12 @@ import nu.nerd.modmode.listeners.CoreProtectListener;
 import nu.nerd.modmode.listeners.ModModeListener;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
-import org.bukkit.Location;
 import org.bukkit.Statistic;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.command.*;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.potion.PotionEffect;
 import org.kitteh.vanish.VanishPerms;
 import org.kitteh.vanish.VanishPlugin;
 
@@ -108,16 +101,7 @@ public class ModMode extends JavaPlugin {
         permissions = new Permissions(this);
 
         // Check if TAB is loaded.
-        Plugin tabPlugin = getPluginManager().getPlugin("TAB");
-        if(tabPlugin == null) {
-            logError("TAB is required. https://modrinth.com/plugin/tab-was-taken");
-            getPluginManager().disablePlugin(this);
-            return;
-        } else {
-            TABAPI = TabAPI.getInstance();
-            nameTagManager = TABAPI.getNameTagManager();
-            tabListFormatManager = TABAPI.getTabListFormatManager();
-        }
+        updateTabAPI();
 
         // Load the config and commands.
         CONFIG = new Configuration(this, TABAPI);
@@ -498,6 +482,32 @@ public class ModMode extends JavaPlugin {
      */
     public boolean isInMode(Player player) {
         return playerGroupMap.containsKey(player.getUniqueId());
+    }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Allows for the TAB API instance to be updated when TAB is reloaded.
+     */
+    public void updateTabAPI() {
+        Plugin tabPlugin = getPluginManager().getPlugin("TAB");
+        System.out.println("TAB HAS RELOADED AND MODMODE HAS HANDLED IT!");
+        if(tabPlugin == null) {
+            logError("TAB is required. https://modrinth.com/plugin/tab-was-taken");
+            getPluginManager().disablePlugin(this);
+        } else {
+            TABAPI = TabAPI.getInstance();
+            nameTagManager = TABAPI.getNameTagManager();
+            tabListFormatManager = TABAPI.getTabListFormatManager();
+
+            System.out.println("Plugin exists and is working");
+
+            if(CONFIG != null) CONFIG.updateTabAPI(TABAPI);
+            for(ModModeGroup group : groupMap.values()) {
+                System.out.println("Updating group: " + group.getName());
+                group.updateTabAPI(TABAPI, nameTagManager, tabListFormatManager);
+            }
+        }
     }
 
 } // ModMode

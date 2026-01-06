@@ -2,7 +2,7 @@ name: ModMode
 version: ${project.version}
 description: ${project.description}
 
-authors: [Travis Watkins, Deaygo]
+authors: [Travis Watkins, Deaygo, PPGOME]
 website: ${project.url}
 
 main: nu.nerd.modmode.ModMode

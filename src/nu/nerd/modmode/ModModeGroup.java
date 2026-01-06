@@ -450,4 +450,16 @@ public class ModModeGroup {
             itemInteractionEnabledBar = null;
         }
     }
+
+    // ------------------------------------------------------------------------
+
+    /**
+     * Updates the instance of the TAB API in the event the TAB plugin is reloaded.
+     * @param tabAPI the new instance of the TAB API.
+     */
+    public void updateTabAPI(TabAPI tabAPI, NameTagManager nameTagManager, TabListFormatManager tabListFormatManager) {
+        this.TABAPI = tabAPI;
+        this.nameTagManager = nameTagManager;
+        this.tabListFormatManager = tabListFormatManager;
+    }
 }
